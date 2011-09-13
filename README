@@ -1,0 +1,71 @@
+What it does
+------------
+
+django-group-access restricts access to records based on group membership.
+It does not manage finer grained permissions such as editing or deleting.
+If a user has access to a record, they have all permissions as defined
+by the django auth permissions.
+
+Installation
+------------
+
+Add 'django_group_access' to your INSTALLED_APPS in settings.py
+
+Integration and use
+-------------------
+
+Example: Installing to a single model and restricting access in a view
+
+models.py
+
+  from django_group_access.models import (
+      AccessGroupMixin,
+      AccessManager,
+  )
+
+  class MyModel(AccessGroupMixin):
+      name = models.CharField(max_length=24)
+      objects = AccessManager()
+
+
+views.py
+
+  def my_view(request):
+      records = MyModel.objects.accessible_by_user(request.user)
+
+
+Access to "parent" records can be determined by access the user has
+to "child" records. In the following example, if you have access to a Room
+you have access to the House it appears in.
+
+
+  class House(models.Model):
+      address = models.CharField(max_length=128)
+      objects = AccessManager()
+      access_child_relation = 'room'
+
+
+  class Room(models.Model):
+      house = models.ForeignKey(House)
+      name = models.CharField(max_length=32)
+      objects = AccessManager()
+
+
+  houses = House.objects.accessible_by_user(user_object)
+
+
+The group model used for access control is AccessGroup. This is
+separate from the django auth Group for flexbility.
+
+Sharing records
+
+  obj = MyModel.objects.accessible_by_user(user_object)[0]
+  group_i_want_to_share_with = AccessGroup.objects.get(name='Friends')
+  obj.access_groups.add(group_i_want_to_share_with)
+
+`obj` would then become visible to members of the 'Friends' AccessGroup.
+
+For ease of sharing data between groups, AccessGroup has a property called
+`auto_share_groups`. This is a list of AccessGroups that records owned
+by the group will automatically be shared with.
+
