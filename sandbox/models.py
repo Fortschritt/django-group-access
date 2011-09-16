@@ -1,5 +1,5 @@
 from django.db import models
-from access.models import (
+from django_group_access.models import (
     AccessManager,
     AccessGroupMixin,
     process_auto_share_groups

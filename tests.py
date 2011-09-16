@@ -11,7 +11,7 @@ from django_group_access.models import AccessGroup, Invitation
 
 
 class SyncingTestCase(TestCase):
-    apps = ('access.sandbox',)
+    apps = ('django_group_access.sandbox',)
 
     def _pre_setup(self):
         # Add the models to the db.
