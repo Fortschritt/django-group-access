@@ -11,18 +11,22 @@ class AccessManager(models.Manager):
     def accessible_by_user(self, user):
         if AccessGroup.objects.filter(members=user, supergroup=True).count():
             return self.all()
-        if hasattr(self.model, 'access_child_relation'):
-            acr = getattr(self.model, 'access_child_relation')
+        if hasattr(self.model, 'access_relation'):
+            acr = getattr(self.model, 'access_relation')
             k = '%s__access_groups__in' % acr
             access_groups_dict = {k: AccessGroup.objects.filter(members=user)}
             k = '%s__isnull' % acr
-            no_child_records = {k: True}
+            no_related_records = {k: True}
             k = '%s__owner' % acr
             direct_owner_dict = {k: user}
             available = self.filter(
                 models.Q(**access_groups_dict) |
                 models.Q(**direct_owner_dict) |
-                models.Q(**no_child_records)).distinct()
+                models.Q(**no_related_records)).distinct()
+            # Although this extra .filter() call seems redundant it turns out
+            # to be a huge performance optimization.  Without it the ORM will
+            # join on the related tables and .distinct() them, which killed
+            # performance in HEXR leading to 30+ seconds to load a page.
             return self.filter(pk__in=available)
         else:
             available = self.filter(
