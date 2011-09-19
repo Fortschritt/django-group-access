@@ -11,19 +11,19 @@ class AccessManager(models.Manager):
     def accessible_by_user(self, user):
         if AccessGroup.objects.filter(members=user, supergroup=True).count():
             return self.all()
-        if hasattr(self.model, 'access_child_relation'):
-            acr = getattr(self.model, 'access_child_relation')
+        if hasattr(self.model, 'access_relation'):
+            acr = getattr(self.model, 'access_relation')
             k = '%s__access_groups__in' % acr
             access_groups_dict = {k: AccessGroup.objects.filter(members=user)}
             k = '%s__isnull' % acr
-            no_child_records = {k: True}
+            no_related_records = {k: True}
             k = '%s__owner' % acr
             direct_owner_dict = {k: user}
             available = self.filter(
                 models.Q(**access_groups_dict) |
                 models.Q(**direct_owner_dict) |
-                models.Q(**no_child_records)).distinct()
-            return self.filter(pk__in=available)
+                models.Q(**no_related_records)).distinct()
+            return available
         else:
             available = self.filter(
                 access_groups__in=AccessGroup.objects.filter(members=user))

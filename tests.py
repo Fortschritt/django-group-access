@@ -1,3 +1,5 @@
+import itertools
+
 from django.test import TestCase
 from django.conf import settings
 from django.core.management import call_command
@@ -6,6 +8,9 @@ from django.contrib.auth.models import User
 from django_group_access.sandbox.models import (
     AccessRestrictedModel,
     AccessRestrictedParent,
+    Build,
+    Project,
+    Release,
 )
 from django_group_access.models import AccessGroup, Invitation
 
@@ -29,6 +34,64 @@ class SyncingTestCase(TestCase):
         # Restore the settings.
         settings.INSTALLED_APPS = self._original_installed_apps
         loading.cache.loaded = False
+
+
+class AccessRelationTests(SyncingTestCase):
+
+    def setUp(self):
+        super(AccessRelationTests, self).setUp()
+        self.owner = _create_user()
+        self.project = Project(owner=self.owner, name='project')
+        self.project.save()
+        self.build = Build(
+            owner=self.owner, name='build', project=self.project)
+        self.build.save()
+        self.release = Release(
+            owner=self.owner, name='release', build=self.build)
+        self.release.save()
+        group = self._create_access_group_with_one_member()
+        self.project.access_groups.add(group)
+        self.project.save()
+        self.user_with_access = group.members.all()[0]
+        self.user_without_access = _create_user()
+
+    def _create_access_group_with_one_member(self):
+        g = AccessGroup(name='oem')
+        g.save()
+        g.members.add(_create_user())
+        g.save()
+        return g
+
+    def test_direct_reference(self):
+        # Build has a foreign key to Project so its access_relation just need
+        # to point to project and we'll take advantage of Django's ORM to do
+        # the access group checks on Project.
+        query_method = Build.objects.accessible_by_user
+
+        self.assertEqual('project', Build.access_relation)
+        self.assertEqual(
+            [self.build.name], [b.name for b in query_method(self.owner)])
+        self.assertEqual(
+            [self.build.name],
+            [b.name for b in query_method(self.user_with_access)])
+        self.assertEqual(
+            [], [b for b in query_method(self.user_without_access)])
+
+    def test_indirect_reference(self):
+        # Release has no foreign key to Project, but it has one to Build
+        # and it can use that to tell us to do the access group checks on
+        # Project.
+        query_method = Release.objects.accessible_by_user
+
+        self.assertEqual('build__project', Release.access_relation)
+        self.assertEqual(
+            [self.release.name], [r.name for r in query_method(self.owner)])
+        self.assertEqual(
+            [self.release.name],
+            [r.name for r in query_method(self.user_with_access)])
+        self.assertEqual(
+            [], [r for r in query_method(self.user_without_access)])
+
 
 
 class InvitationTest(TestCase):
@@ -238,3 +301,11 @@ class AccessTest(SyncingTestCase):
         self.assertEqual(available[6].name, 'the cabal record 2')
         self.assertEqual(available[7].name, 'the cabal record extra')
         self.assertEqual(available[8].name, 'the stonecutters record 1')
+
+
+counter = itertools.count()
+def _create_user():
+    random_string = 'asdfg%d' % counter.next()
+    user = User.objects.create_user(
+        random_string, '%s@example.com' % random_string)
+    return user
