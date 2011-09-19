@@ -23,7 +23,11 @@ class AccessManager(models.Manager):
                 models.Q(**access_groups_dict) |
                 models.Q(**direct_owner_dict) |
                 models.Q(**no_related_records)).distinct()
-            return available
+            # Although this extra .filter() call seems redundant it turns out
+            # to be a huge performance optimization.  Without it the ORM will
+            # join on the related tables and .distinct() them, which killed
+            # performance in HEXR leading to 30+ seconds to load a page.
+            return self.filter(pk__in=available)
         else:
             available = self.filter(
                 access_groups__in=AccessGroup.objects.filter(members=user))
