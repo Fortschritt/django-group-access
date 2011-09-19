@@ -8,9 +8,7 @@ class AccessManager(models.Manager):
     def get_for_owner(self, user):
         return self.filter(owner=user)
 
-    def accessible_by_user(self, user):
-        if AccessGroup.objects.filter(members=user, supergroup=True).count():
-            return self.all()
+    def _get_accessible_by_user_filter_rules(self, user):
         if hasattr(self.model, 'access_relation'):
             acr = getattr(self.model, 'access_relation')
             k = '%s__access_groups__in' % acr
@@ -19,20 +17,24 @@ class AccessManager(models.Manager):
             no_related_records = {k: True}
             k = '%s__owner' % acr
             direct_owner_dict = {k: user}
-            available = self.filter(
+            return (
                 models.Q(**access_groups_dict) |
                 models.Q(**direct_owner_dict) |
-                models.Q(**no_related_records)).distinct()
-            # Although this extra .filter() call seems redundant it turns out
-            # to be a huge performance optimization.  Without it the ORM will
-            # join on the related tables and .distinct() them, which killed
-            # performance in HEXR leading to 30+ seconds to load a page.
-            return self.filter(pk__in=available)
+                models.Q(**no_related_records))
         else:
-            available = self.filter(
-                access_groups__in=AccessGroup.objects.filter(members=user))
-            return self.filter(
-                        models.Q(pk__in=available) | models.Q(owner=user))
+            user_groups = AccessGroup.objects.filter(members=user)
+            return (models.Q(access_groups__in=user_groups) |
+                    models.Q(owner=user))
+
+    def accessible_by_user(self, user):
+        if AccessGroup.objects.filter(members=user, supergroup=True).count():
+            return self.all()
+        rules = self._get_accessible_by_user_filter_rules(user)
+        # Although this extra .filter() call seems redundant it turns out
+        # to be a huge performance optimization.  Without it the ORM will
+        # join on the related tables and .distinct() them, which killed
+        # performance in HEXR leading to 30+ seconds to load a page.
+        return self.filter(pk__in=self.filter(rules).distinct())
 
 
 class AccessGroup(models.Model):
