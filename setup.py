@@ -5,12 +5,12 @@ from setuptools import setup
 
 setup(
     name='django-group-access',
-    author="Foo Bar",  # FIXME!
-    author_email="foo.bar@example.com",   # FIXME!
+    author="Mike Heald",
+    author_email="mike.heald@canonical.com",
     description=("Base Django model to add access control, via groups, to "
                  "objects."),
     url='https://launchpad.net/django-group-access',
-    license='LGPLv3', # FIXME!
+    license='LGPLv3',
     keywords=['django', 'ownership', 'models'],
     version="0.0.1",
     classifiers=[
