@@ -26,5 +26,5 @@ setup(
     zip_safe=True,
     packages=['django_group_access'],
     # dependencies
-    install_requires=['django >= 1.0'],  # XXX: Is this correct?
+    install_requires=['django >= 1.2'],
 )
