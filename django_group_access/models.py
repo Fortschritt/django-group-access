@@ -67,13 +67,6 @@ class Invitation(models.Model):
         return u'%s to %s' % (self.lp_username, self.group)
 
 
-class AccessGroupMixin(models.Model):
-    access_groups = models.ManyToManyField(AccessGroup, blank=True)
-
-    class Meta:
-        abstract = True
-
-
 def process_invitations(user):
     for i in Invitation.objects.filter(lp_username=user.username):
         g = i.group
