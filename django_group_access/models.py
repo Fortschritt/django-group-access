@@ -3,22 +3,28 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 
 
-class AccessManager(models.Manager):
+class AccessManagerMixin:
+    """
+    Provides access control methods for the Manager class.
+    """
 
     def get_for_owner(self, user):
         return self.filter(owner=user)
 
     def _get_accessible_by_user_filter_rules(self, user):
-        """ Implements the access rules. Must return a
-            queryset of available records. """
+        """
+        Implements the access rules. Must return a queryset
+        of available records.
+        """
         if hasattr(self.model, 'access_relation'):
-            acr = getattr(self.model, 'access_relation')
-            k = '%s__access_groups__in' % acr
-            access_groups_dict = {k: AccessGroup.objects.filter(members=user)}
-            k = '%s__isnull' % acr
-            no_related_records = {k: True}
-            k = '%s__owner' % acr
-            direct_owner_dict = {k: user}
+            access_relation = getattr(self.model, 'access_relation')
+            lookup_key = '%s__access_groups__in' % access_relation
+            access_groups_dict = {
+                lookup_key: AccessGroup.objects.filter(members=user)}
+            lookup_key = '%s__isnull' % access_relation
+            no_related_records = {lookup_key: True}
+            lookup_key = '%s__owner' % access_relation
+            direct_owner_dict = {lookup_key: user}
             return (
                 models.Q(**access_groups_dict) |
                 models.Q(**direct_owner_dict) |
@@ -29,14 +35,28 @@ class AccessManager(models.Manager):
                     models.Q(owner=user))
 
     def accessible_by_user(self, user):
+        """
+        Returns a queryset filtered by the records available to the user.
+        """
         if AccessGroup.objects.filter(members=user, supergroup=True).count():
             return self.all()
+
         rules = self._get_accessible_by_user_filter_rules(user)
+
+        # This stops the filtering happening over and over and over and...
+        self._access_control_filter_processing = True
+
         # Although this extra .filter() call seems redundant it turns out
         # to be a huge performance optimization.  Without it the ORM will
-        # join on the related tables and .distinct() them, which killed
-        # performance in HEXR leading to 30+ seconds to load a page.
-        return self.filter(pk__in=self.filter(rules).distinct())
+        # join on the related tables and .distinct() them, which can kill
+        # performance on larger queries.
+        filtered_queryset = self.filter(pk__in=self.filter(rules).distinct())
+
+        self._access_control_filter_processing = False
+
+        # now load the filtered_queryset with the access_control metadata
+        filtered_queryset._access_control_meta = {'user': user}
+        return filtered_queryset
 
 
 class AccessGroup(models.Model):
@@ -68,22 +88,30 @@ class Invitation(models.Model):
 
 
 def process_invitations(user):
-    for i in Invitation.objects.filter(lp_username=user.username):
-        g = i.group
-        g.members.add(user)
-        g.save()
-        i.delete()
+    """
+    Processes invitations for users and adds them to
+    the group they've been invited to.
+    """
+    for invitation in Invitation.objects.filter(lp_username=user.username):
+        group = invitation.group
+        group.members.add(user)
+        group.save()
+        invitation.delete()
 
 
 def process_auto_share_groups(sender, instance, created, **kwargs):
+    """
+    Automatically shares a record with the auto_share_groups
+    on the groups the owner is a member of.
+    """
     if created:
         try:
             owner = instance.owner
             if owner is None:
                 return
-            for g in owner.accessgroup_set.all():
-                for sg in g.auto_share_groups.all():
-                    instance.access_groups.add(sg)
+            for group in owner.accessgroup_set.all():
+                for share_group in group.auto_share_groups.all():
+                    instance.access_groups.add(share_group)
         except User.DoesNotExist:
             pass
 
@@ -94,11 +122,16 @@ def process_invitations_for_user(sender, instance, created, **kwargs):
 
 
 def populate_sharing(sender, instance, created, **kwargs):
-    for g in AccessGroup.objects.all():
+    """
+    When new groups are created, if they can be shared with
+    they are added to the 'can_share_with' property of the
+    other groups.
+    """
+    for group in AccessGroup.objects.all():
         if instance.can_be_shared_with:
-            g.can_share_with.add(instance)
-        elif instance in g.can_share_with.all():
-            g.can_share_with.remove(instance)
+            group.can_share_with.add(instance)
+        elif instance in group.can_share_with.all():
+            group.can_share_with.remove(instance)
     instance.can_share_with.add(instance)
 
 post_save.connect(process_invitations_for_user, User)

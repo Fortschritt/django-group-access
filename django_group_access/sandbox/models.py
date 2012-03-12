@@ -23,8 +23,24 @@ class AccessRestrictedModel(models.Model):
         return self.name
 
 
+class Machine(models.Model):
+    name = models.CharField(max_length=64)
+
+    def __unicode__(self):
+        return self.name
+
+
+class Unrestricted(models.Model):
+    name = models.CharField(max_length=64)
+
+    def __unicode__(self):
+        return self.name
+
+
 class Project(models.Model):
     name = models.CharField(max_length=64)
+    machines = models.ManyToManyField(Machine)
+    unrestricted = models.ForeignKey(Unrestricted, null=True)
 
     def __unicode__(self):
         return self.name
@@ -53,3 +69,6 @@ register(Build, control_relation='project')
 # We don't have a direct reference to the parent which is
 # accessgroup-controlled, so we have to go via Build.
 register(Release, control_relation='build__project')
+# a project can have many machines, a machine can be in many projects,
+# so this is here to test the ManyToMany related records filtering
+register(Machine)

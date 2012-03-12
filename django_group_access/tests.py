@@ -4,13 +4,16 @@ from django.test import TestCase
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import loading
+from django.db.models.manager import Manager
 from django.contrib.auth.models import User
 from django_group_access.sandbox.models import (
     AccessRestrictedModel,
     AccessRestrictedParent,
     Build,
+    Machine,
     Project,
     Release,
+    Unrestricted,
 )
 from django_group_access.models import AccessGroup, Invitation
 
@@ -37,7 +40,10 @@ class SyncingTestCase(TestCase):
 
 
 class AccessRelationTests(SyncingTestCase):
-
+    """
+    Test that the access relations determine access based
+    on other related models.
+    """
     def setUp(self):
         super(AccessRelationTests, self).setUp()
         self.owner = _create_user()
@@ -56,16 +62,18 @@ class AccessRelationTests(SyncingTestCase):
         self.user_without_access = _create_user()
 
     def _create_access_group_with_one_member(self):
-        g = AccessGroup(name='oem')
-        g.save()
-        g.members.add(_create_user())
-        g.save()
-        return g
+        group = AccessGroup(name='oem')
+        group.save()
+        group.members.add(_create_user())
+        group.save()
+        return group
 
     def test_direct_reference(self):
-        # Build has a foreign key to Project so its access_relation just need
-        # to point to project and we'll take advantage of Django's ORM to do
-        # the access group checks on Project.
+        """
+        A model that has its access relation pointing at
+        a directly related model will have its accessibility determined
+        by if the user has access to the related model.
+        """
         query_method = Build.objects.accessible_by_user
 
         self.assertEqual('project', Build.access_relation)
@@ -78,6 +86,12 @@ class AccessRelationTests(SyncingTestCase):
             [], [b for b in query_method(self.user_without_access)])
 
     def test_indirect_reference(self):
+        """
+        A model that has its access relation pointing at
+        a model that is not a direct relation of itself
+        (perhaps relation__othermodel) will have its accessibility
+        determined by if the user has access to the related model.
+        """
         # Release has no foreign key to Project, but it has one to Build
         # and it can use that to tell us to do the access group checks on
         # Project.
@@ -93,20 +107,20 @@ class AccessRelationTests(SyncingTestCase):
             [], [r for r in query_method(self.user_without_access)])
 
 
-
 class InvitationTest(TestCase):
 
     def setUp(self):
-        g = AccessGroup(name='oem')
-        g.save()
-        i = Invitation(lp_username='tomservo', group=g)
-        i.save()
+        group = AccessGroup(name='oem')
+        group.save()
+        invitation = Invitation(lp_username='tomservo', group=group)
+        invitation.save()
 
     def test_add_to_group_on_user_creation(self):
-        """ If there is an invitation for a user, when that user is
-            created they should be added to the access group they
-            were invited to. """
-
+        """
+        If there is an invitation for a user, when that user is
+        created they should be added to the access group they
+        were invited to.
+        """
         u = User.objects.create_user(
             'tomservo', 'tomservo@example.com', 'test')
         self.assertTrue(u in AccessGroup.objects.get(name='oem').members.all())
@@ -303,7 +317,248 @@ class AccessTest(SyncingTestCase):
         self.assertEqual(available[8].name, 'the stonecutters record 1')
 
 
+class MetaInformationPropagationTest(SyncingTestCase):
+    """
+    Test that the meta information about the access control
+    filtering is passed around the models, managers,
+    and querysets correctly.
+    """
+    def setUp(self):
+        self.group1 = AccessGroup.objects.create(name='group1')
+        self.group2 = AccessGroup.objects.create(name='group2')
+        self.user = _create_user()
+        other_user = _create_user()
+        unrestricted = Unrestricted.objects.create(
+            name='project1 unrestricted')
+        self.project1 = Project.objects.create(
+            name='project1', owner=self.user,
+            unrestricted=unrestricted)
+        self.machine1 = Machine.objects.create(
+            name='machine1', owner=self.user)
+        self.machine2 = Machine.objects.create(
+            name='machine2', owner=other_user)
+        self.project1.machines.add(self.machine1)
+        self.project1.machines.add(self.machine2)
+        Build.objects.create(name='build1', project=self.project1)
+        self.machine1.access_groups.add(self.group1)
+        self.machine2.access_groups.add(self.group2)
+
+    def test_queryset_initial_set(self):
+        """
+        The meta information is set when the first queryset is generated.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        self.assertEqual(queryset._access_control_meta['user'], self.user)
+
+    def test_queryset_clone(self):
+        """
+        The meta information is copied when subsequent querysets are made.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        new_queryset = queryset.filter(name='stuff')
+        self.assertEqual(
+            new_queryset._access_control_meta,
+            queryset._access_control_meta)
+
+    def test_get(self):
+        """
+        Meta information should appear on the model returned from .get()
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        model = queryset.get(pk=self.project1.id)
+        self.assertEqual(
+            model._access_control_meta, queryset._access_control_meta)
+
+    def test_iterator(self):
+        """
+        Meta information should appear on the models when the queryset
+        is iterated over.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        for model in queryset:
+            self.assertEqual(
+                model._access_control_meta, queryset._access_control_meta)
+
+    def test_model_gets_metadata_from_queryset(self):
+        """
+        Models are loaded with the access control metadata when they
+        come from an access control filtered queryset.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        model = queryset[0]
+        self.assertEqual(
+            queryset._access_control_meta, model._access_control_meta)
+
+    def test_foreignkey_model_gets_metadata(self):
+        """
+        Models related through a foreign key have the meta data set.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        model = queryset[0]
+        self.assertEqual(
+            model._access_control_meta,
+            model.unrestricted._access_control_meta)
+
+    def test_many_to_many_related_queryset_gets_metadata(self):
+        """
+        ManyToMany managers have the meta data set from the instance.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        model = queryset[0]
+        queryset = model.machines.all()
+        self.assertEqual(
+            model._access_control_meta,
+            queryset._access_control_meta)
+
+    def test_model_from_many_to_many_related_queryset_gets_metadata(self):
+        """
+        Models retrieved through a ManyToMany manager have the meta data
+        set from the instance they came from.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        model = queryset[0]
+        machine = model.machines.all()[0]
+        self.assertEqual(
+            machine._access_control_meta,
+            queryset._access_control_meta)
+
+    def test_foreign_related_sets_get_metadata(self):
+        """
+        The managers for foreignkey _sets are loaded with the metadata
+        from the instance.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        model = queryset[0]
+        self.assertEqual(
+            model.build_set._access_control_meta,
+            model._access_control_meta)
+
+    def test_models_from_foreign_related_sets_get_metadata(self):
+        """
+        The models accessed through foreignkey _sets are loaded with the
+        metadata from the original query.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        project = queryset[0]
+        build = project.build_set.all()[0]
+        self.assertEqual(
+            build._access_control_meta,
+            queryset._access_control_meta)
+
+
+class AccessManagerMixinTest(TestCase):
+    """
+    Test that the code from AccessManager has been injected into
+    the base Manager class.
+    """
+    def test_access_manager_methods_on_manager(self):
+        manager = Manager()
+        self.assertTrue(hasattr(manager, 'get_for_owner'))
+        self.assertTrue(
+            hasattr(manager, '_get_accessible_by_user_filter_rules'))
+        self.assertTrue(hasattr(manager, 'accessible_by_user'))
+
+
+class RelatedRecordFilteringTest(SyncingTestCase):
+    def setUp(self):
+        self.group1 = AccessGroup.objects.create(name='group1')
+        self.group2 = AccessGroup.objects.create(name='group2')
+        self.user = _create_user()
+        other_user = _create_user()
+        self.group1.members.add(self.user)
+        self.group2.members.add(other_user)
+        self.parent1 = AccessRestrictedParent.objects.create(name='parent1')
+        self.parent2 = AccessRestrictedParent.objects.create(name='parent2')
+        self.child1 = AccessRestrictedModel.objects.create(
+            parent=self.parent1, owner=self.user, name='child1')
+        self.child2 = AccessRestrictedModel.objects.create(
+            parent=self.parent1, owner=other_user, name='child2')
+        self.child3 = AccessRestrictedModel.objects.create(
+            parent=self.parent2, owner=self.user, name='child3')
+        self.child4 = AccessRestrictedModel.objects.create(
+            parent=self.parent2, owner=other_user, name='child4')
+        self.child1.access_groups.add(self.group1)
+        self.child2.access_groups.add(self.group2)
+        self.child3.access_groups.add(self.group1)
+        self.child4.access_groups.add(self.group2)
+
+    def test_related_set_filtered_for_user(self):
+        """
+        When using accessible_by_user to retrieve a record,
+        the related records for access controlled models are
+        also filtered by that user.
+        """
+        parent = AccessRestrictedParent.objects.accessible_by_user(
+            self.user).get(pk=self.parent1.id)
+        self.assertEqual(
+            set(parent.accessrestrictedmodel_set.all()), set([self.child1]))
+
+    def test_filter_persisted_as_relationships_followed(self):
+        """
+        When following relationships between models, the
+        access restrictions still apply.
+        """
+        parent = AccessRestrictedParent.objects.accessible_by_user(
+            self.user).get(pk=self.parent1.id)
+        restricted_model = parent.accessrestrictedmodel_set.all()[0]
+        parent = restricted_model.parent
+        self.assertEqual(
+            set(parent.accessrestrictedmodel_set.all()), set([self.child1]))
+
+
+class ManyToManyRelatedRecordFilteringTest(SyncingTestCase):
+    def setUp(self):
+        self.group1 = AccessGroup.objects.create(name='group1')
+        self.group2 = AccessGroup.objects.create(name='group2')
+        self.user = _create_user()
+        other_user = _create_user()
+        self.project1 = Project.objects.create(
+            name='project1', owner=self.user)
+        self.machine1 = Machine.objects.create(
+            name='machine1', owner=self.user)
+        self.machine2 = Machine.objects.create(
+            name='machine2', owner=other_user)
+        self.project1.machines.add(self.machine1)
+        self.project1.machines.add(self.machine2)
+        self.machine1.access_groups.add(self.group1)
+        self.machine2.access_groups.add(self.group2)
+
+    def test_many_to_many_related_set_filtered_for_user(self):
+        """
+        When using accessible_by_user to retrieve a record,
+        the related records for access controlled models are
+        also filtered by that user.
+        """
+        project = Project.objects.accessible_by_user(self.user)[0]
+        self.assertEqual(
+            set(project.machines.all()), set([self.machine1]))
+
+    def test_many_to_many_related_set_filtered_for_user_using_get(self):
+        """
+        When using accessible_by_user to retrieve a record,
+        the related records for access controlled models are
+        also filtered by that user.
+        """
+        project = Project.objects.accessible_by_user(
+            self.user).get(pk=self.project1.id)
+        self.assertEqual(
+            set(project.machines.all()), set([self.machine1]))
+
+    def test_filter_persisted_as_relationships_followed(self):
+        """
+        When following relationships between models, the
+        access restrictions still apply.
+        """
+        project = Project.objects.accessible_by_user(
+            self.user).get(pk=self.project1.id)
+        machine = project.machines.all()[0]
+        project = machine.project_set.all()[0]
+        self.assertEqual(
+            set(project.machines.all()), set([self.machine1]))
+
 counter = itertools.count()
+
+
 def _create_user():
     random_string = 'asdfg%d' % counter.next()
     user = User.objects.create_user(
