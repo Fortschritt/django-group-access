@@ -743,6 +743,47 @@ class DbMethodsHaveRestrictionsAppliedTest(SyncingTestCase):
             {1: self.project1})
 
 
+class BugsTest(SyncingTestCase):
+    """
+    Tests for various bugs found during the pre-rule apply to
+    post-rule apply refactor.
+    """
+    def setUp(self):
+        self.group1 = AccessGroup.objects.create(name='group1')
+        self.group2 = AccessGroup.objects.create(name='group2')
+        self.user = _create_user()
+        other_user = _create_user()
+        self.project1 = Project.objects.create(
+            name='project1', owner=self.user)
+        self.project2 = Project.objects.create(
+            name='project2', owner=other_user)
+        self.machine1 = Machine.objects.create(
+            name='machine1', owner=self.user)
+        self.machine2 = Machine.objects.create(
+            name='machine2', owner=other_user)
+        self.project1.machines.add(self.machine1)
+        self.project1.machines.add(self.machine2)
+        self.machine1.access_groups.add(self.group1)
+        self.machine2.access_groups.add(self.group2)
+
+    def test_repr_in_iteration_loop(self):
+        """
+        Converting models to a string inside a loop
+        should not cause a nasty recursion error.
+        """
+        for project in Project.objects.accessible_by_user(self.user):
+            self.assertTrue(bool('%s' % project))
+
+    def test_multiple_count_calls_are_accurate(self):
+        """
+        Multiple calls to .count() all return the correct value.
+        """
+        projects = Project.objects.accessible_by_user(self.user)
+        self.assertEqual(projects.count(), 1)
+        self.assertEqual(projects.count(), 1)
+        self.assertEqual(projects.count(), 1)
+
+
 counter = itertools.count()
 
 
