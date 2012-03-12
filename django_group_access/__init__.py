@@ -4,12 +4,35 @@ from django.db.models import query, manager
 from django.db.models.fields import related
 
 from django_group_access import registration
-from django_group_access.models import AccessManagerMixin
+from django_group_access.models import AccessManagerMixin, QuerySetMixin
 
 register = registration.register
 
 # add access control methods to the base Manager class
-manager.Manager.__bases__ += (AccessManagerMixin, )
+if AccessManagerMixin not in manager.Manager.__bases__:
+    manager.Manager.__bases__ += (AccessManagerMixin, )
+# add access control methods to the base QuerySet class
+if QuerySetMixin not in query.QuerySet.__bases__:
+    query.QuerySet.__bases__ += (QuerySetMixin, )
+
+
+def wrap_db_method(func):
+    """
+    When the queryset is going to go to the database, apply
+    the access control filters.
+    """
+    def db_wrapper(self, *args, **kwargs):
+        queryset = self._filter_for_access_control()
+        return func(queryset, *args, **kwargs)
+    return db_wrapper
+
+query.QuerySet.get = wrap_db_method(query.QuerySet.get)
+query.QuerySet.latest = wrap_db_method(query.QuerySet.latest)
+query.QuerySet.aggregate = wrap_db_method(query.QuerySet.aggregate)
+query.QuerySet.iterator = wrap_db_method(query.QuerySet.iterator)
+query.QuerySet.count = wrap_db_method(query.QuerySet.count)
+query.QuerySet.in_bulk = wrap_db_method(query.QuerySet.in_bulk)
+query.QuerySet.__getitem__ = wrap_db_method(query.QuerySet.__getitem__)
 
 
 def wrap_get_query_set(func):
@@ -19,14 +42,6 @@ def wrap_get_query_set(func):
     """
     def get_query_set_wrapper(self, *args, **kwargs):
         queryset = func(self, *args, **kwargs)
-
-        # don't reprocess if we're currently processing access control rules
-        if getattr(self, '_access_control_filter_processing', False):
-            return queryset
-
-        # don't reprocess if the accessible_by_user filter is already applied
-        if getattr(queryset, '_access_control_filtered', False):
-            return queryset
 
         metadata = False
         if hasattr(self, 'instance'):
@@ -40,8 +55,6 @@ def wrap_get_query_set(func):
         if metadata:
             queryset._access_control_meta = metadata
             queryset._access_control_filtered = True
-            accessible = self.accessible_by_user(metadata['user'])
-            queryset = queryset.filter(pk__in=accessible)
         return queryset
     return get_query_set_wrapper
 
@@ -77,8 +90,8 @@ def wrap_query_set_clone(func):
 
         # if this queryset has been run through accessible_by_user, its clone
         # will have that filter too, so copy the flag over.
-        if hasattr(self, '_access_control_filtered'):
-            clone._access_control_filtered = self._access_control_filtered
+        if hasattr(self, '_access_control_filtering'):
+            clone._access_control_filtering = self._access_control_filtering
         return clone
     return clone_queryset
 

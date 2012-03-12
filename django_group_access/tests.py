@@ -3,6 +3,7 @@ import itertools
 from django.test import TestCase
 from django.conf import settings
 from django.core.management import call_command
+from django.db import models
 from django.db.models import loading
 from django.db.models.manager import Manager
 from django.contrib.auth.models import User
@@ -76,7 +77,7 @@ class AccessRelationTests(SyncingTestCase):
         """
         query_method = Build.objects.accessible_by_user
 
-        self.assertEqual('project', Build.access_relation)
+        self.assertEqual('project', Build.access_control_relation)
         self.assertEqual(
             [self.build.name], [b.name for b in query_method(self.owner)])
         self.assertEqual(
@@ -97,7 +98,7 @@ class AccessRelationTests(SyncingTestCase):
         # Project.
         query_method = Release.objects.accessible_by_user
 
-        self.assertEqual('build__project', Release.access_relation)
+        self.assertEqual('build__project', Release.access_control_relation)
         self.assertEqual(
             [self.release.name], [r.name for r in query_method(self.owner)])
         self.assertEqual(
@@ -349,6 +350,18 @@ class MetaInformationPropagationTest(SyncingTestCase):
         """
         queryset = Project.objects.accessible_by_user(self.user).all()
         self.assertEqual(queryset._access_control_meta['user'], self.user)
+        self.assertFalse(queryset._access_control_meta['unrestricted'], False)
+
+    def test_queryset_set_as_unrestricted(self):
+        """
+        The unrestricted attribute of the metadata is set to True when
+        the queryset is cloned through .unrestricted()
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        unrestricted_queryset = queryset.unrestricted()
+        self.assertEqual(queryset._access_control_meta['user'], None)
+        self.assertTrue(
+            unrestricted_queryset._access_control_meta['unrestricted'])
 
     def test_queryset_clone(self):
         """
@@ -445,17 +458,6 @@ class MetaInformationPropagationTest(SyncingTestCase):
             build._access_control_meta,
             queryset._access_control_meta)
 
-    def test_access_control_filtered_flag(self):
-        """
-        The access control filtered flag is passed on to any queryset
-        generated from a access control filtered queryset, but is not
-        passed on to models.
-        """
-        queryset = Project.objects.accessible_by_user(self.user).all()
-        self.assertTrue(queryset._access_control_filtered)
-        project = queryset[0]
-        self.assertFalse(hasattr(project, '_access_control_filtered'))
-
 
 class AccessManagerMixinTest(TestCase):
     """
@@ -465,8 +467,6 @@ class AccessManagerMixinTest(TestCase):
     def test_access_manager_methods_on_manager(self):
         manager = Manager()
         self.assertTrue(hasattr(manager, 'get_for_owner'))
-        self.assertTrue(
-            hasattr(manager, '_get_accessible_by_user_filter_rules'))
         self.assertTrue(hasattr(manager, 'accessible_by_user'))
 
 
@@ -566,6 +566,182 @@ class ManyToManyRelatedRecordFilteringTest(SyncingTestCase):
         project = machine.project_set.all()[0]
         self.assertEqual(
             set(project.machines.all()), set([self.machine1]))
+
+
+class RegistrationTest(TestCase):
+    """
+    Tests the model registration.
+    """
+    def setUp(self):
+        from django_group_access import registration
+        self.registration = registration
+        self.old_models = registration.registered_models
+
+    def tearDown(self):
+        self.registration.registered_models = self.old_models
+
+    def test_register_adds_model_to_list_of_registered_models(self):
+        """
+        Registering a model adds it to the list of registered models.
+        """
+        class RegistrationTestModel(models.Model):
+            pass
+        self.registration.register(RegistrationTestModel)
+        self.assertTrue(
+            RegistrationTestModel in self.registration.registered_models)
+
+    def test_register_adds_access_groups_to_model(self):
+        """
+        Registering a model adds the access group relation.
+        """
+        class AccessGroupRelationTestModel(models.Model):
+            pass
+        self.registration.register(AccessGroupRelationTestModel)
+        self.assertTrue(isinstance(
+            AccessGroupRelationTestModel.access_groups,
+            models.fields.related.ReverseManyRelatedObjectsDescriptor))
+
+    def test_register_adds_owner_to_model(self):
+        """
+        Registered a model adds the owner field.
+        """
+        class AddOwnerTestModel(models.Model):
+            pass
+        self.registration.register(AddOwnerTestModel)
+        self.assertTrue(isinstance(
+            AddOwnerTestModel.owner,
+            models.fields.related.ReverseSingleRelatedObjectDescriptor))
+
+    def test_model_with_control_relation_does_not_get_access_groups(self):
+        """
+        Registering a model that uses a control relation for access control
+        will not get the access_groups property, but still has owner, and
+        also has the control_relation property.
+        """
+        class ControlRelationControlledTestModel(models.Model):
+            pass
+        self.registration.register(
+            ControlRelationControlledTestModel, control_relation='other_model')
+        self.assertTrue(hasattr(ControlRelationControlledTestModel, 'owner'))
+        self.assertFalse(
+            hasattr(ControlRelationControlledTestModel, 'access_groups'))
+        self.assertEqual(
+            ControlRelationControlledTestModel.access_control_relation,
+            'other_model')
+
+    def test_register_model_with_unrestricted_manager(self):
+        """
+        Nominating an unrestricted manager will create the manager on the
+        nominated attribute and set _access_control_meta['unrestrcted']
+        to true and _access_control_meta['user'] to None.
+        """
+        class UnrestrictedManagerTestModel(models.Model):
+            pass
+        self.registration.register(
+            UnrestrictedManagerTestModel,
+            unrestricted_manager='objects_unrestricted')
+        manager = UnrestrictedManagerTestModel.objects_unrestricted
+        self.assertTrue(manager._access_control_meta['unrestricted'])
+        self.assertEqual(manager._access_control_meta['user'], None)
+
+
+class UnrestrictedAccessTest(SyncingTestCase):
+    """
+    Test that a queryset which has had accessible_by_user used
+    in it can have the effects of accessible_by_user reversed by
+    calling .unrestricted()
+    """
+    def setUp(self):
+        self.group1 = AccessGroup.objects.create(name='group1')
+        self.group2 = AccessGroup.objects.create(name='group2')
+        self.user = _create_user()
+        other_user = _create_user()
+        self.project1 = Project.objects.create(
+            name='project1', owner=self.user)
+        self.project2 = Project.objects.create(
+            name='project2', owner=other_user)
+        self.machine1 = Machine.objects.create(
+            name='machine1', owner=self.user)
+        self.machine2 = Machine.objects.create(
+            name='machine2', owner=other_user)
+        self.project1.machines.add(self.machine1)
+        self.project1.machines.add(self.machine2)
+        self.machine1.access_groups.add(self.group1)
+        self.machine2.access_groups.add(self.group2)
+
+    def test_unrestricted_returned_queryset_with_no_access_control(self):
+        """
+        Calling .unrestricted() will return a queryset which is a
+        clone of the original but without any access restrictions imposed.
+        """
+        projects = Project.objects.accessible_by_user(self.user).all()
+        all_projects = projects.unrestricted()
+        self.assertEqual(all_projects.count(), 2)
+
+
+class DbMethodsHaveRestrictionsAppliedTest(SyncingTestCase):
+    """
+    Tests each method on queryset that retrives records from
+    the database has the restrictions applied when the queryset
+    has been filtered with accessible_by_user.
+    """
+    def setUp(self):
+        self.group1 = AccessGroup.objects.create(name='group1')
+        self.group2 = AccessGroup.objects.create(name='group2')
+        self.user = _create_user()
+        other_user = _create_user()
+        self.project1 = Project.objects.create(
+            name='project1', owner=self.user)
+        self.project2 = Project.objects.create(
+            name='project2', owner=other_user)
+        self.machine1 = Machine.objects.create(
+            name='machine1', owner=self.user)
+        self.machine2 = Machine.objects.create(
+            name='machine2', owner=other_user)
+        self.project1.machines.add(self.machine1)
+        self.project1.machines.add(self.machine2)
+        self.machine1.access_groups.add(self.group1)
+        self.machine2.access_groups.add(self.group2)
+
+    def test_get(self):
+        project = Project.objects.accessible_by_user(
+            self.user).get(pk=self.project1.id)
+        self.assertEqual(project.id, self.project1.id)
+        try:
+            project = Project.objects.accessible_by_user(
+                self.user).get(pk=self.project2.id)
+            self.fail(
+                'Was able to get a project that user did not have access to')
+        except Project.DoesNotExist:
+            pass
+
+    def test_iterate(self):
+        projects = list(
+            Project.objects.accessible_by_user(self.user).all())
+        self.assertEqual(len(projects), 1)
+
+    def test_aggregate(self):
+        self.assertEqual(
+            Project.objects.accessible_by_user(
+                self.user).aggregate(models.Max('id')),
+            {'id__max': 1})
+
+    def test_count(self):
+        self.assertEqual(
+            Project.objects.accessible_by_user(self.user).count(), 1)
+
+    def test_latest(self):
+        self.assertEqual(
+            Project.objects.accessible_by_user(
+                self.user).latest(field_name='id'),
+            self.project1)
+
+    def test_in_bulk(self):
+        self.assertEqual(
+            Project.objects.accessible_by_user(
+                self.user).in_bulk([self.project1.id, self.project2.id]),
+            {1: self.project1})
+
 
 counter = itertools.count()
 
