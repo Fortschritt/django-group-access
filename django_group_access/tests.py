@@ -445,6 +445,17 @@ class MetaInformationPropagationTest(SyncingTestCase):
             build._access_control_meta,
             queryset._access_control_meta)
 
+    def test_access_control_filtered_flag(self):
+        """
+        The access control filtered flag is passed on to any queryset
+        generated from a access control filtered queryset, but is not
+        passed on to models.
+        """
+        queryset = Project.objects.accessible_by_user(self.user).all()
+        self.assertTrue(queryset._access_control_filtered)
+        project = queryset[0]
+        self.assertFalse(hasattr(project, '_access_control_filtered'))
+
 
 class AccessManagerMixinTest(TestCase):
     """

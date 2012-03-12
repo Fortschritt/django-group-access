@@ -56,6 +56,7 @@ class AccessManagerMixin:
 
         # now load the filtered_queryset with the access_control metadata
         filtered_queryset._access_control_meta = {'user': user}
+        filtered_queryset._access_control_filtered = True
         return filtered_queryset
 
 

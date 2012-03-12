@@ -78,7 +78,7 @@ def wrap_query_set_clone(func):
         # if this queryset has been run through accessible_by_user, its clone
         # will have that filter too, so copy the flag over.
         if hasattr(self, '_access_control_filtered'):
-            clone._access_control_meta = self._access_control_meta
+            clone._access_control_filtered = self._access_control_filtered
         return clone
     return clone_queryset
 
