@@ -2,9 +2,6 @@ from django.db.models import ForeignKey, ManyToManyField, manager
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 
-from django_group_access.models import (
-    AccessGroup, process_auto_share_groups)
-
 registered_models = []
 
 
@@ -12,6 +9,9 @@ def register(model, control_relation=False, unrestricted_manager=False):
     """
     Register a model with the access control code.
     """
+    from django_group_access.models import (
+        AccessGroup, process_auto_share_groups)
+
     if model in registered_models:
         return
     registered_models.append(model)

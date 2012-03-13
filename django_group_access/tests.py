@@ -7,6 +7,8 @@ from django.db import models
 from django.db.models import loading
 from django.db.models.manager import Manager
 from django.contrib.auth.models import User
+
+from django_group_access import middleware
 from django_group_access.sandbox.models import (
     AccessRestrictedModel,
     AccessRestrictedParent,
@@ -359,9 +361,13 @@ class MetaInformationPropagationTest(SyncingTestCase):
         """
         queryset = Project.objects.accessible_by_user(self.user).all()
         unrestricted_queryset = queryset.unrestricted()
-        self.assertEqual(queryset._access_control_meta['user'], None)
+        self.assertEqual(
+            unrestricted_queryset._access_control_meta['user'], None)
         self.assertTrue(
             unrestricted_queryset._access_control_meta['unrestricted'])
+        self.assertEqual(
+            queryset._access_control_meta['user'], self.user)
+        self.assertFalse(queryset._access_control_meta['unrestricted'])
 
     def test_queryset_clone(self):
         """
@@ -677,6 +683,7 @@ class UnrestrictedAccessTest(SyncingTestCase):
         projects = Project.objects.accessible_by_user(self.user).all()
         all_projects = projects.unrestricted()
         self.assertEqual(all_projects.count(), 2)
+        self.assertEqual(projects.count(), 1)
 
 
 class DbMethodsHaveRestrictionsAppliedTest(SyncingTestCase):
@@ -782,6 +789,88 @@ class RefactorBugsTest(SyncingTestCase):
         self.assertEqual(projects.count(), 1)
         self.assertEqual(projects.count(), 1)
         self.assertEqual(projects.count(), 1)
+
+
+class AutomaticFilteringTest(SyncingTestCase):
+    """
+    Test that the automatic filtering and middleware methods.
+    """
+    def setUp(self):
+
+        class MockRequest(object):
+            pass
+
+        self.group1 = AccessGroup.objects.create(name='group1')
+        self.group2 = AccessGroup.objects.create(name='group2')
+        self.user = _create_user()
+        other_user = _create_user()
+        self.project1 = Project.objects.create(
+            name='project1', owner=self.user)
+        self.project2 = Project.objects.create(
+            name='project2', owner=other_user)
+        self.machine1 = Machine.objects.create(
+            name='machine1', owner=self.user)
+        self.machine2 = Machine.objects.create(
+            name='machine2', owner=other_user)
+        self.project1.machines.add(self.machine1)
+        self.project1.machines.add(self.machine2)
+        self.machine1.access_groups.add(self.group1)
+        self.machine2.access_groups.add(self.group2)
+        self.MockRequest = MockRequest
+
+    def test_middleware_process_request(self):
+        """
+        Test that the middleware sets the user in thread local storage.
+        """
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = self.user
+        result = processor.process_request(request)
+        self.assertEqual(middleware.get_access_control_user(), self.user)
+        self.assertEqual(result, None)
+
+    def test_middleware_process_response(self):
+        """
+        Test that the middleware sets the user in thread local storage.
+        """
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = self.user
+        processor.process_request(request)
+        response = processor.process_response('My Response')
+        self.assertEqual(middleware.get_access_control_user(), None)
+        self.assertEqual(response, 'My Response')
+
+    def test_access_controls_applied_automatically(self):
+        """
+        When a user is registered with the access control middleware,
+        access control rules are applied automatically.
+        """
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = self.user
+        processor.process_request(request)
+        projects = Project.objects.all()
+        self.assertEqual(projects.count(), 1)
+        self.assertEqual(projects[0], self.project1)
+
+        project = projects[0]
+        self.assertEqual(project.machines.count(), 1)
+        self.assertEqual(project.machines.all()[0], self.machine1)
+
+    def test_automatically_filtered_querysets_can_be_unrestricted(self):
+        """
+        When a queryset is filtered automatically, calling unrestricted()
+        will stop that happening.
+        """
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = self.user
+        processor.process_request(request)
+        projects = Project.objects.all()
+        projects = projects.unrestricted()
+        self.assertEqual(projects.count(), 2)
+        self.assertEqual(set(projects), set([self.project1, self.project2]))
 
 
 counter = itertools.count()

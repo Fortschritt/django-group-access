@@ -62,7 +62,7 @@ class Release(models.Model):
         return self.name
 
 
-register(AccessRestrictedModel)
+register(AccessRestrictedModel, unrestricted_manager='objects_unrestricted')
 register(AccessRestrictedParent, control_relation='accessrestrictedmodel')
 register(Project)
 register(Build, control_relation='project')

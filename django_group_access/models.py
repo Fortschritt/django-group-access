@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 
+from django_group_access import middleware, registration
+
 
 class AccessManagerMixin:
     """
@@ -24,8 +26,11 @@ class QuerySetMixin:
         set to an unrestricted state.
         """
         queryset = self._clone()
-        queryset._access_control_meta['user'] = None
-        queryset._access_control_meta['unrestricted'] = True
+        access_control_meta = getattr(
+            queryset, '_access_control_meta', {}).copy()
+        access_control_meta['user'] = None
+        access_control_meta['unrestricted'] = True
+        queryset._access_control_meta = access_control_meta
         return queryset
 
     def get_for_owner(self, user):
@@ -62,24 +67,31 @@ class QuerySetMixin:
         Returns a queryset filtered for the records the user stored
         in the access control metadata can access.
         """
+        if not self.model in registration.registered_models:
+            return self
+
         if getattr(self, '_access_control_filtering', False):
             return self
 
         if hasattr(self, '_access_control_meta'):
             user = self._access_control_meta['user']
-            if user is not None:
-                # this stops any further filtering while the filtering rules
-                # are applied
-                self._access_control_filtering = True
-                rules = self._get_accessible_by_user_filter_rules(user)
-                # Although this extra .filter() call seems redundant it turns
-                # out to be a huge performance optimization.  Without it the
-                # ORM will join on the related tables and .distinct() them,
-                # which can kill performance on larger queries.
-                rules_qs = self.filter(rules).distinct()
-                filtered_queryset = self.filter(pk__in=rules_qs)
-                self._access_control_filtering = False
-                return filtered_queryset
+        else:
+            user = middleware.get_access_control_user()
+
+        if user is not None:
+            # this stops any further filtering while the filtering rules
+            # are applied
+            self._access_control_filtering = True
+            rules = self._get_accessible_by_user_filter_rules(user)
+            # Although this extra .filter() call seems redundant it turns
+            # out to be a huge performance optimization.  Without it the
+            # ORM will join on the related tables and .distinct() them,
+            # which can kill performance on larger queries.
+            rules_qs = self.filter(rules).distinct()
+            filtered_queryset = self.filter(pk__in=rules_qs)
+            self._access_control_filtering = False
+            return filtered_queryset
+
         return self
 
     def accessible_by_user(self, user):
