@@ -38,8 +38,8 @@ class QuerySetMixin:
 
     def _get_accessible_by_user_filter_rules(self, user):
         """
-        Implements the access rules. Must return a queryset
-        of available records.
+        Implements the access rules. Must return a set of Q conditions
+        matching available records.
         """
         if user.is_superuser:
             return models.Q()
