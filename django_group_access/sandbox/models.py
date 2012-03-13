@@ -62,9 +62,9 @@ class Release(models.Model):
         return self.name
 
 
-register(AccessRestrictedModel, unrestricted_manager='objects_unrestricted')
+register(AccessRestrictedModel)
 register(AccessRestrictedParent, control_relation='accessrestrictedmodel')
-register(Project)
+register(Project, unrestricted_manager='objects_unrestricted')
 register(Build, control_relation='project')
 # We don't have a direct reference to the parent which is
 # accessgroup-controlled, so we have to go via Build.

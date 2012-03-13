@@ -884,6 +884,18 @@ class AutomaticFilteringTest(SyncingTestCase):
         self.assertEqual(projects.count(), 2)
         self.assertEqual(set(projects), set([self.project1, self.project2]))
 
+    def test_unrestricted_manager_is_unrestricted(self):
+        """
+        When a request is being automatically filtered, unrestricted
+        managers are still unrestricted.
+        """
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = self.user
+        processor.process_request(request)
+        projects = Project.objects_unrestricted.all()
+        self.assertEqual(projects.count(), 2)
+
 
 counter = itertools.count()
 
