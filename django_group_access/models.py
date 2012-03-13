@@ -41,6 +41,9 @@ class QuerySetMixin:
         Implements the access rules. Must return a queryset
         of available records.
         """
+        if user.is_superuser:
+            return models.Q()
+
         if AccessGroup.objects.filter(members=user, supergroup=True).count():
             return models.Q()
 
@@ -87,8 +90,8 @@ class QuerySetMixin:
             # out to be a huge performance optimization.  Without it the
             # ORM will join on the related tables and .distinct() them,
             # which can kill performance on larger queries.
-            rules_qs = self.filter(rules).distinct()
-            filtered_queryset = self.filter(pk__in=rules_qs)
+            filtered_queryset = self.filter(
+                pk__in=self.filter(rules).distinct())
             self._access_control_filtering = False
             return filtered_queryset
 

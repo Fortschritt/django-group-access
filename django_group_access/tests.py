@@ -225,6 +225,10 @@ class AccessTest(SyncingTestCase):
         self.supergroup.members.add(su)
 
         User.objects.create_user('nogroupuser', 'nogroup@example.com', 'test')
+        self.superuser = User.objects.create_user(
+            'superuser', 'super@example.com', 'test')
+        self.superuser.is_superuser = True
+        self.superuser.save()
 
     def test_get_own_resources(self):
         u = self.restricted_group_a.members.all().order_by('username')[0]
@@ -318,6 +322,14 @@ class AccessTest(SyncingTestCase):
         self.assertEqual(available[6].name, 'the cabal record 2')
         self.assertEqual(available[7].name, 'the cabal record extra')
         self.assertEqual(available[8].name, 'the stonecutters record 1')
+
+    def test_superusers_see_all(self):
+        available = AccessRestrictedModel.objects.accessible_by_user(
+            self.superuser)
+        self.assertEqual(available.count(), 12)
+        available = AccessRestrictedParent.objects.accessible_by_user(
+            self.superuser)
+        self.assertEqual(available.count(), 3)
 
 
 class MetaInformationPropagationTest(SyncingTestCase):
