@@ -743,10 +743,10 @@ class DbMethodsHaveRestrictionsAppliedTest(SyncingTestCase):
             {1: self.project1})
 
 
-class BugsTest(SyncingTestCase):
+class RefactorBugsTest(SyncingTestCase):
     """
-    Tests for various bugs found during the pre-rule apply to
-    post-rule apply refactor.
+    Tests for various ways the code was broken during the refactor to
+    support .unrestricted() on querysets.
     """
     def setUp(self):
         self.group1 = AccessGroup.objects.create(name='group1')
