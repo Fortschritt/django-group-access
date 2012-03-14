@@ -82,6 +82,8 @@ class QuerySetMixin:
             user = middleware.get_access_control_user()
 
         if user is not None:
+            if not user.is_authenticated():
+                return self.model.objects.none()
             # this stops any further filtering while the filtering rules
             # are applied
             self._access_control_filtering = True

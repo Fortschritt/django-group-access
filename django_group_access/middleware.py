@@ -19,6 +19,6 @@ class DjangoGroupAccessMiddleware(object):
         _storage.access_control_user = getattr(request, 'user', None)
         return None
 
-    def process_response(self, response):
+    def process_response(self, request, response):
         _storage.access_control_user = None
         return response

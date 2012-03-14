@@ -6,9 +6,10 @@ from django.core.management import call_command
 from django.db import models
 from django.db.models import loading
 from django.db.models.manager import Manager
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser, User
 
 from django_group_access import middleware
+from django_group_access import registration
 from django_group_access.sandbox.models import (
     AccessRestrictedModel,
     AccessRestrictedParent,
@@ -591,12 +592,12 @@ class RegistrationTest(TestCase):
     Tests the model registration.
     """
     def setUp(self):
-        from django_group_access import registration
-        self.registration = registration
-        self.old_models = registration.registered_models
+        self.old_models = registration.registered_models[:]
+        self.old_filter_models = registration.auto_filter_models[:]
 
     def tearDown(self):
-        self.registration.registered_models = self.old_models
+        registration.registered_models = self.old_models[:]
+        registration.auto_filter_models = self.old_filter_models[:]
 
     def test_register_adds_model_to_list_of_registered_models(self):
         """
@@ -604,9 +605,9 @@ class RegistrationTest(TestCase):
         """
         class RegistrationTestModel(models.Model):
             pass
-        self.registration.register(RegistrationTestModel)
+        registration.register(RegistrationTestModel)
         self.assertTrue(
-            RegistrationTestModel in self.registration.registered_models)
+            RegistrationTestModel in registration.registered_models)
 
     def test_register_adds_access_groups_to_model(self):
         """
@@ -614,7 +615,7 @@ class RegistrationTest(TestCase):
         """
         class AccessGroupRelationTestModel(models.Model):
             pass
-        self.registration.register(AccessGroupRelationTestModel)
+        registration.register(AccessGroupRelationTestModel)
         self.assertTrue(isinstance(
             AccessGroupRelationTestModel.access_groups,
             models.fields.related.ReverseManyRelatedObjectsDescriptor))
@@ -625,7 +626,7 @@ class RegistrationTest(TestCase):
         """
         class AddOwnerTestModel(models.Model):
             pass
-        self.registration.register(AddOwnerTestModel)
+        registration.register(AddOwnerTestModel)
         self.assertTrue(isinstance(
             AddOwnerTestModel.owner,
             models.fields.related.ReverseSingleRelatedObjectDescriptor))
@@ -638,7 +639,7 @@ class RegistrationTest(TestCase):
         """
         class ControlRelationControlledTestModel(models.Model):
             pass
-        self.registration.register(
+        registration.register(
             ControlRelationControlledTestModel, control_relation='other_model')
         self.assertTrue(hasattr(ControlRelationControlledTestModel, 'owner'))
         self.assertFalse(
@@ -655,12 +656,36 @@ class RegistrationTest(TestCase):
         """
         class UnrestrictedManagerTestModel(models.Model):
             pass
-        self.registration.register(
+        registration.register(
             UnrestrictedManagerTestModel,
             unrestricted_manager='objects_unrestricted')
         manager = UnrestrictedManagerTestModel.objects_unrestricted
         self.assertTrue(manager._access_control_meta['unrestricted'])
         self.assertEqual(manager._access_control_meta['user'], None)
+
+    def test_register_model_adds_to_the_auto_filter_list(self):
+        """
+        Registering a model adds it to the list of models that
+        would be automatically filtered.
+        """
+        class AutoFilterRegistrationTestModel(models.Model):
+            pass
+        registration.register(AutoFilterRegistrationTestModel)
+        self.assertTrue(
+            AutoFilterRegistrationTestModel in registration.auto_filter_models)
+
+    def test_register_model_exclude_from_the_auto_filter_list(self):
+        """
+        Registering a model with auto_filter=False does not add it to
+        the list of models that would be automatically filtered.
+        """
+        class DoNotAutoFilterRegistrationTestModel(models.Model):
+            pass
+        registration.register(
+            DoNotAutoFilterRegistrationTestModel, auto_filter=False)
+        self.assertTrue(
+            DoNotAutoFilterRegistrationTestModel not in
+            registration.auto_filter_models)
 
 
 class UnrestrictedAccessTest(SyncingTestCase):
@@ -834,6 +859,9 @@ class AutomaticFilteringTest(SyncingTestCase):
             name='build2', owner=other_user, project=self.project1)
         self.MockRequest = MockRequest
 
+    def tearDown(self):
+        del(middleware._storage.access_control_user)
+
     def test_middleware_process_request(self):
         """
         Test that the middleware sets the user in thread local storage.
@@ -853,7 +881,7 @@ class AutomaticFilteringTest(SyncingTestCase):
         request = self.MockRequest()
         request.user = self.user
         processor.process_request(request)
-        response = processor.process_response('My Response')
+        response = processor.process_response(request, 'My Response')
         self.assertEqual(middleware.get_access_control_user(), None)
         self.assertEqual(response, 'My Response')
 
@@ -910,6 +938,17 @@ class AutomaticFilteringTest(SyncingTestCase):
         processor.process_request(request)
         builds = Build.objects.all()
         self.assertEqual(builds.count(), 2)
+
+    def test_anonymous_user_sees_nothing(self):
+        """
+        Anonymous users should have no records visible.
+        """
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = AnonymousUser()
+        processor.process_request(request)
+        projects = Project.objects.all()
+        self.assertEqual(projects.count(), 0)
 
 
 counter = itertools.count()
