@@ -3,9 +3,12 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 
 registered_models = []
+auto_filter_models = []
 
 
-def register(model, control_relation=False, unrestricted_manager=False):
+def register(
+    model, control_relation=False, unrestricted_manager=False,
+    auto_filter=True):
     """
     Register a model with the access control code.
     """
@@ -15,6 +18,10 @@ def register(model, control_relation=False, unrestricted_manager=False):
     if model in registered_models:
         return
     registered_models.append(model)
+
+    if auto_filter:
+        auto_filter_models.append(model)
+
     ForeignKey(
         User, null=True, blank=True).contribute_to_class(model, 'owner')
 

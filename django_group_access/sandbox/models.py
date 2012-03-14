@@ -65,7 +65,7 @@ class Release(models.Model):
 register(AccessRestrictedModel)
 register(AccessRestrictedParent, control_relation='accessrestrictedmodel')
 register(Project, unrestricted_manager='objects_unrestricted')
-register(Build, control_relation='project')
+register(Build, control_relation='project', auto_filter=False)
 # We don't have a direct reference to the parent which is
 # accessgroup-controlled, so we have to go via Build.
 register(Release, control_relation='build__project')

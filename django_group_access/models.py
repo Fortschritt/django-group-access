@@ -75,10 +75,10 @@ class QuerySetMixin:
 
         if getattr(self, '_access_control_filtering', False):
             return self
-
+        user = None
         if hasattr(self, '_access_control_meta'):
             user = self._access_control_meta['user']
-        else:
+        elif self.model in registration.auto_filter_models:
             user = middleware.get_access_control_user()
 
         if user is not None:

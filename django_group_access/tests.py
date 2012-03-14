@@ -828,6 +828,10 @@ class AutomaticFilteringTest(SyncingTestCase):
         self.project1.machines.add(self.machine2)
         self.machine1.access_groups.add(self.group1)
         self.machine2.access_groups.add(self.group2)
+        Build.objects.create(
+            name='build1', owner=self.user, project=self.project1)
+        Build.objects.create(
+            name='build2', owner=other_user, project=self.project1)
         self.MockRequest = MockRequest
 
     def test_middleware_process_request(self):
@@ -895,6 +899,17 @@ class AutomaticFilteringTest(SyncingTestCase):
         processor.process_request(request)
         projects = Project.objects_unrestricted.all()
         self.assertEqual(projects.count(), 2)
+
+    def test_nominate_model_not_to_be_automatically_filtered(self):
+        """
+        Models can be nominated to not be automatically filtered.
+        """
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = self.user
+        processor.process_request(request)
+        builds = Build.objects.all()
+        self.assertEqual(builds.count(), 2)
 
 
 counter = itertools.count()
