@@ -8,7 +8,7 @@ from django.db.models import loading
 from django.db.models.manager import Manager
 from django.contrib.auth.models import AnonymousUser, User
 
-from django_group_access import middleware
+from django_group_access import middleware, wrap_getitem
 from django_group_access import registration
 from django_group_access.sandbox.models import (
     AccessRestrictedModel,
@@ -846,6 +846,26 @@ class RefactorBugsTest(SyncingTestCase):
             self.user).get(pk=self.project1.id)
         other_model = project.unrestricted
         self.assertEqual(other_model, None)
+
+    def test_getitem_wrapper_handles_lists(self):
+        """
+        QuerySet.__getitem__ can return lists of objects
+        which need metadata propagating to them.
+        """
+        class MockObject(object):
+            pass
+
+        def mock_getitem(self, key):
+            return [MockObject(), MockObject()]
+
+        func = wrap_getitem(mock_getitem)
+        mock_self = MockObject()
+        mock_self._access_control_meta = {'key': 42}
+        result = func(mock_self, 42)
+        self.assertEqual(len(result), 2)
+        for obj in result:
+            self.assertEqual(
+                obj._access_control_meta, mock_self._access_control_meta)
 
 
 class AutomaticFilteringTest(SyncingTestCase):
