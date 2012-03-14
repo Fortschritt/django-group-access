@@ -113,7 +113,11 @@ def wrap_getitem(func):
     def getitem_wrapper(self, k):
         item = func(self, k)
         if hasattr(self, '_access_control_meta'):
-            item._access_control_meta = self._access_control_meta
+            if isinstance(item, list):
+                for obj in item:
+                    obj._access_control_meta = self._access_control_meta
+            else:
+                item._access_control_meta = self._access_control_meta
         return item
     return getitem_wrapper
 
@@ -128,6 +132,8 @@ def wrap_descriptor_get(func):
     """
     def get_wrapper(self, instance, instance_type=None):
         obj = func(self, instance, instance_type)
+        if obj is None:
+            return obj
         if hasattr(instance, '_access_control_meta'):
             obj._access_control_meta = instance._access_control_meta
         return obj

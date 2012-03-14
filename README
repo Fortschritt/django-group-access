@@ -6,10 +6,12 @@ It does not manage finer grained permissions such as editing or deleting.
 If a user has access to a record, they have all permissions as defined
 by the django auth permissions.
 
+
 Installation
 ------------
 
 Add 'django_group_access' to your INSTALLED_APPS in settings.py
+
 
 Integration and use
 -------------------
@@ -67,7 +69,9 @@ you have access to the House it appears in.
 The group model used for access control is AccessGroup. This is
 separate from the django auth Group for flexbility.
 
+
 Sharing records
+---------------
 
   obj = MyModel.objects.accessible_by_user(user_object)[0]
   group_i_want_to_share_with = AccessGroup.objects.get(name='Friends')
@@ -79,10 +83,28 @@ For ease of sharing data between groups, AccessGroup has a property called
 `auto_share_groups`. This is a list of AccessGroups that records owned
 by the group will automatically be shared with.
 
-Automatically restricting based on logged in user
 
-TO DO
+Automatically restricting based on logged in user
+-------------------------------------------------
+
+Add 'django_group_access.middleware.DjangoGroupAccessMiddleware' to the
+MIDDLEWARE_CLASSES in settings.py. All access controlled models will be filtered
+based on the currently logged in user, meaning you do not have to call
+'accessible_by_user' in your code. Anonymous users will see no records.
+
+Registering a model with 'auto_filter=False' will stop the automatic
+filtering for that model, meaning you will have to do it manually using
+'accessible_by_user' in your code.
+
 
 Access to unrestricted records
+------------------------------
 
-TO DO
+Registering a model with the option 'unrestricted_manager="manager_name"' will
+create a manager on that model with unrestricted access to all records, even if
+you are using the automatic restriction based on the logged in user.
+
+Example:
+
+  registration.register(MyModel, unrestricted_manager='all_objects')
+  all_records = MyModel.all_objects.all()

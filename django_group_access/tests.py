@@ -392,6 +392,17 @@ class MetaInformationPropagationTest(SyncingTestCase):
             new_queryset._access_control_meta,
             queryset._access_control_meta)
 
+    def test_lists_get_metadata(self):
+        """
+        Turning a queryset into a list will put the metadata on each
+        item in the list.
+        """
+        projects = Project.objects.accessible_by_user(self.user)
+        project_list = list(projects)
+        for project in project_list:
+            self.assertEqual(
+                project._access_control_meta, projects._access_control_meta)
+
     def test_get(self):
         """
         Meta information should appear on the model returned from .get()
@@ -796,15 +807,15 @@ class RefactorBugsTest(SyncingTestCase):
         self.group1 = AccessGroup.objects.create(name='group1')
         self.group2 = AccessGroup.objects.create(name='group2')
         self.user = _create_user()
-        other_user = _create_user()
+        self.other_user = _create_user()
         self.project1 = Project.objects.create(
             name='project1', owner=self.user)
         self.project2 = Project.objects.create(
-            name='project2', owner=other_user)
+            name='project2', owner=self.other_user)
         self.machine1 = Machine.objects.create(
             name='machine1', owner=self.user)
         self.machine2 = Machine.objects.create(
-            name='machine2', owner=other_user)
+            name='machine2', owner=self.other_user)
         self.project1.machines.add(self.machine1)
         self.project1.machines.add(self.machine2)
         self.machine1.access_groups.add(self.group1)
@@ -826,6 +837,15 @@ class RefactorBugsTest(SyncingTestCase):
         self.assertEqual(projects.count(), 1)
         self.assertEqual(projects.count(), 1)
         self.assertEqual(projects.count(), 1)
+
+    def test_get_back_foreignkey_with_no_record(self):
+        """
+        Get back a nullable foreignkey which is not set, should return None.
+        """
+        project = Project.objects.accessible_by_user(
+            self.user).get(pk=self.project1.id)
+        other_model = project.unrestricted
+        self.assertEqual(other_model, None)
 
 
 class AutomaticFilteringTest(SyncingTestCase):
