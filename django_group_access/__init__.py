@@ -8,6 +8,13 @@ from django_group_access.models import AccessManagerMixin, QuerySetMixin
 
 register = registration.register
 
+"""
+Django creates managers in a whole bunch of places, sometimes
+defining the classs dynamically inside a closure, which makes
+decorating every manager creation a tricky job. So we add a mixin
+to the base Manager class so that we're guaranteed to have the
+access control code available no matter which Manager we're using.
+"""
 # add access control methods to the base Manager class
 if AccessManagerMixin not in manager.Manager.__bases__:
     manager.Manager.__bases__ += (AccessManagerMixin, )

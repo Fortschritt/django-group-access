@@ -75,6 +75,7 @@ class QuerySetMixin:
 
         if getattr(self, '_access_control_filtering', False):
             return self
+
         user = None
         if hasattr(self, '_access_control_meta'):
             user = self._access_control_meta['user']
@@ -103,10 +104,8 @@ class QuerySetMixin:
         """
         Sets up metadata so the queryset will be access controlled when run.
         """
-
         self._access_control_meta = {'user': user,
                                      'unrestricted': False}
-
         return self
 
 
