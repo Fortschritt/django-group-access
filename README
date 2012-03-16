@@ -92,6 +92,9 @@ MIDDLEWARE_CLASSES in settings.py. All access controlled models will be filtered
 based on the currently logged in user, meaning you do not have to call
 'accessible_by_user' in your code. Anonymous users will see no records.
 
+The middleware must be come after the AuthenticationMiddleware in the list
+of MIDDLEWARE_CLASSES.
+
 Registering a model with 'auto_filter=False' will stop the automatic
 filtering for that model, meaning you will have to do it manually using
 'accessible_by_user' in your code.

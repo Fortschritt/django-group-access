@@ -1,3 +1,4 @@
+# Copyright 2012 Canonical Ltd.
 from django.db import models
 from django_group_access import register
 

@@ -1,3 +1,4 @@
+# Copyright 2012 Canonical Ltd.
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import loading

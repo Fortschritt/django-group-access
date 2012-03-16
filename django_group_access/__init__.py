@@ -1,3 +1,4 @@
+# Copyright 2012 Canonical Ltd.
 __all__ = ['register', ]
 
 from django.db.models import query, manager

@@ -1,3 +1,4 @@
+# Copyright 2012 Canonical Ltd.
 try:
     from threading import local
 except ImportError:

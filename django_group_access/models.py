@@ -1,3 +1,4 @@
+# Copyright 2012 Canonical Ltd.
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -5,7 +6,7 @@ from django.db.models.signals import post_save
 from django_group_access import middleware, registration
 
 
-class AccessManagerMixin:
+class AccessManagerMixin(object):
     """
     Provides access control methods for the Manager class.
     """

@@ -1,3 +1,4 @@
+# Copyright 2012 Canonical Ltd.
 from django.db.models import ForeignKey, ManyToManyField, manager
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save

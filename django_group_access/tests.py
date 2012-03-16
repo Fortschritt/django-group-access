@@ -1,3 +1,4 @@
+# Copyright 2012 Canonical Ltd.
 import itertools
 
 from django.test import TestCase
