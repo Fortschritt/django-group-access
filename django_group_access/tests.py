@@ -67,10 +67,8 @@ class AccessRelationTests(SyncingTestCase):
         self.user_without_access = _create_user()
 
     def _create_access_group_with_one_member(self):
-        group = AccessGroup(name='oem')
-        group.save()
+        group = AccessGroup.objects.create(name='oem')
         group.members.add(_create_user())
-        group.save()
         return group
 
     def test_direct_reference(self):
@@ -115,10 +113,8 @@ class AccessRelationTests(SyncingTestCase):
 class InvitationTest(TestCase):
 
     def setUp(self):
-        group = AccessGroup(name='oem')
-        group.save()
-        invitation = Invitation(lp_username='tomservo', group=group)
-        invitation.save()
+        group = AccessGroup.objects.create(name='oem')
+        Invitation.objects.create(lp_username='tomservo', group=group)
 
     def test_add_to_group_on_user_creation(self):
         """
@@ -326,6 +322,9 @@ class AccessTest(SyncingTestCase):
         self.assertEqual(available[8].name, 'the stonecutters record 1')
 
     def test_superusers_see_all(self):
+        """
+        Superusers see all records, regardless of group membership.
+        """
         available = AccessRestrictedModel.objects.accessible_by_user(
             self.superuser)
         self.assertEqual(available.count(), 12)
@@ -496,6 +495,10 @@ class AccessManagerMixinTest(TestCase):
     the base Manager class.
     """
     def test_access_manager_methods_on_manager(self):
+        """
+        Methods that are defined on the AccessManagerMixin have been
+        added to the base Manager class.
+        """
         manager = Manager()
         self.assertTrue(hasattr(manager, 'get_for_owner'))
         self.assertTrue(hasattr(manager, 'accessible_by_user'))
