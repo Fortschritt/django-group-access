@@ -6,7 +6,7 @@ from django.db.models.signals import post_save
 from django_group_access import middleware, registration
 
 
-class AccessManagerMixin(object):
+class AccessManagerMixin:
     """
     Provides access control methods for the Manager class.
     """
@@ -50,13 +50,13 @@ class QuerySetMixin:
 
         if hasattr(self.model, 'access_control_relation'):
             access_relation = getattr(self.model, 'access_control_relation')
-            lookup_key = '%s__access_groups__in' % access_relation
+
             access_groups_dict = {
-                lookup_key: AccessGroup.objects.filter(members=user)}
-            lookup_key = '%s__isnull' % access_relation
-            no_related_records = {lookup_key: True}
-            lookup_key = '%s__owner' % access_relation
-            direct_owner_dict = {lookup_key: user}
+                '%s__access_groups__in' % access_relation:
+                    AccessGroup.objects.filter(members=user)}
+            no_related_records = {'%s__isnull' % access_relation: True}
+            direct_owner_dict = {'%s__owner' % access_relation: user}
+
             return (
                 models.Q(**access_groups_dict) |
                 models.Q(**direct_owner_dict) |
@@ -71,7 +71,7 @@ class QuerySetMixin:
         Returns a queryset filtered for the records the user stored
         in the access control metadata can access.
         """
-        if not self.model in registration.registered_models:
+        if not registration.is_registered_model(self.model):
             return self
 
         if getattr(self, '_access_control_filtering', False):
@@ -80,7 +80,7 @@ class QuerySetMixin:
         user = None
         if hasattr(self, '_access_control_meta'):
             user = self._access_control_meta['user']
-        elif self.model in registration.auto_filter_models:
+        elif registration.is_auto_filtered(self.model):
             user = middleware.get_access_control_user()
 
         if user is not None:

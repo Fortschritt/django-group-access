@@ -604,12 +604,21 @@ class RegistrationTest(TestCase):
     Tests the model registration.
     """
     def setUp(self):
-        self.old_models = registration.registered_models[:]
-        self.old_filter_models = registration.auto_filter_models[:]
+        self.old_models = registration._registered_models.copy()
+        self.old_filter_models = registration._auto_filter_models.copy()
 
     def tearDown(self):
-        registration.registered_models = self.old_models[:]
-        registration.auto_filter_models = self.old_filter_models[:]
+        registration._registered_models = self.old_models.copy()
+        registration.auto_filter_models = self.old_filter_models.copy()
+
+    def test_unregistered_model_is_not_marked_as_registered(self):
+        """
+        Calling registration.is_registered_model for an unregistered
+        model returns False.
+        """
+        class UnregisteredModel(models.Model):
+            pass
+        self.assertFalse(registration.is_registered_model(UnregisteredModel))
 
     def test_register_adds_model_to_list_of_registered_models(self):
         """
@@ -619,7 +628,7 @@ class RegistrationTest(TestCase):
             pass
         registration.register(RegistrationTestModel)
         self.assertTrue(
-            RegistrationTestModel in registration.registered_models)
+            registration.is_registered_model(RegistrationTestModel))
 
     def test_register_adds_access_groups_to_model(self):
         """
@@ -684,7 +693,7 @@ class RegistrationTest(TestCase):
             pass
         registration.register(AutoFilterRegistrationTestModel)
         self.assertTrue(
-            AutoFilterRegistrationTestModel in registration.auto_filter_models)
+            registration.is_auto_filtered(AutoFilterRegistrationTestModel))
 
     def test_register_model_exclude_from_the_auto_filter_list(self):
         """
@@ -695,9 +704,9 @@ class RegistrationTest(TestCase):
             pass
         registration.register(
             DoNotAutoFilterRegistrationTestModel, auto_filter=False)
-        self.assertTrue(
-            DoNotAutoFilterRegistrationTestModel not in
-            registration.auto_filter_models)
+        self.assertFalse(
+            registration.is_auto_filtered(
+                DoNotAutoFilterRegistrationTestModel))
 
 
 class UnrestrictedAccessTest(SyncingTestCase):
