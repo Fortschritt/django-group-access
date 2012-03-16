@@ -893,15 +893,15 @@ class AutomaticFilteringTest(SyncingTestCase):
         self.group1 = AccessGroup.objects.create(name='group1')
         self.group2 = AccessGroup.objects.create(name='group2')
         self.user = _create_user()
-        other_user = _create_user()
+        self.other_user = _create_user()
         self.project1 = Project.objects.create(
             name='project1', owner=self.user)
         self.project2 = Project.objects.create(
-            name='project2', owner=other_user)
+            name='project2', owner=self.other_user)
         self.machine1 = Machine.objects.create(
             name='machine1', owner=self.user)
         self.machine2 = Machine.objects.create(
-            name='machine2', owner=other_user)
+            name='machine2', owner=self.other_user)
         self.project1.machines.add(self.machine1)
         self.project1.machines.add(self.machine2)
         self.machine1.access_groups.add(self.group1)
@@ -909,11 +909,12 @@ class AutomaticFilteringTest(SyncingTestCase):
         Build.objects.create(
             name='build1', owner=self.user, project=self.project1)
         Build.objects.create(
-            name='build2', owner=other_user, project=self.project1)
+            name='build2', owner=self.other_user, project=self.project1)
         self.MockRequest = MockRequest
 
     def tearDown(self):
-        del(middleware._storage.access_control_user)
+        if hasattr(middleware._storage, 'access_control_user'):
+            del(middleware._storage.access_control_user)
 
     def test_middleware_process_request(self):
         """
@@ -1002,6 +1003,43 @@ class AutomaticFilteringTest(SyncingTestCase):
         processor.process_request(request)
         projects = Project.objects.all()
         self.assertEqual(projects.count(), 0)
+
+    def test_user_storage_is_local_to_current_thread(self):
+        """
+        Test that the user stored is local to the current thread.
+        """
+        import threading
+
+        class StorageTestThread(threading.Thread):
+            def __init__(self, user, *args, **kwargs):
+                self.stored_user = None
+                self.user = user
+                super(StorageTestThread, self).__init__(*args, **kwargs)
+
+            def run(self):
+                class MockRequest(object):
+                    pass
+                processor = middleware.DjangoGroupAccessMiddleware()
+                request = MockRequest()
+                request.user = self.user
+                processor.process_request(request)
+                self.stored_user = middleware.get_access_control_user()
+
+        storage_test_thread_1 = StorageTestThread(self.user)
+        storage_test_thread_1.start()
+        storage_test_thread_2 = StorageTestThread(self.other_user)
+        storage_test_thread_2.start()
+        while (
+            storage_test_thread_1.stored_user is None or
+            storage_test_thread_2.stored_user is None):
+            pass
+
+        # thread 1 had our test user
+        self.assertEqual(storage_test_thread_1.stored_user, self.user)
+        # thread 2 had the other user
+        self.assertEqual(storage_test_thread_2.stored_user, self.other_user)
+        # our local test thread has no user
+        self.assertEqual(middleware.get_access_control_user(), None)
 
 
 counter = itertools.count()
