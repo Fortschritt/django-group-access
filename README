@@ -32,6 +32,10 @@ models.py
 MyModel will gain access_groups which is a ManyToManyField containing
 the groups that have access to each record.
 
+MyModel will also gain 'owner' which is a ForeignKey to
+django.contrib.auth.models.User and is used to determine ownership
+of the record.
+
 
 views.py
 
