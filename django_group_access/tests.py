@@ -20,7 +20,7 @@ from django_group_access.sandbox.models import (
     Release,
     Unrestricted,
 )
-from django_group_access.models import AccessGroup, Invitation
+from django_group_access.models import AccessGroup
 
 
 class SyncingTestCase(TestCase):
@@ -108,29 +108,6 @@ class AccessRelationTests(SyncingTestCase):
             [r.name for r in query_method(self.user_with_access)])
         self.assertEqual(
             [], [r for r in query_method(self.user_without_access)])
-
-
-class InvitationTest(TestCase):
-
-    def setUp(self):
-        group = AccessGroup.objects.create(name='oem')
-        Invitation.objects.create(lp_username='tomservo', group=group)
-
-    def test_add_to_group_on_user_creation(self):
-        """
-        If there is an invitation for a user, when that user is
-        created they should be added to the access group they
-        were invited to.
-        """
-        u = User.objects.create_user(
-            'tomservo', 'tomservo@example.com', 'test')
-        self.assertTrue(u in AccessGroup.objects.get(name='oem').members.all())
-
-    def test_invitation_deleted_after_processing(self):
-        self.assertEqual(Invitation.objects.all().count(), 1)
-        User.objects.create_user(
-            'tomservo', 'tomservo@example.com', 'test')
-        self.assertEqual(Invitation.objects.all().count(), 0)
 
 
 class AccessGroupSharingTest(TestCase):

@@ -127,29 +127,6 @@ class AccessGroup(models.Model):
         return self.name
 
 
-class Invitation(models.Model):
-    lp_username = models.CharField(max_length=64)
-    group = models.ForeignKey(AccessGroup)
-
-    class Meta:
-        ordering = ('lp_username',)
-
-    def __unicode__(self):
-        return u'%s to %s' % (self.lp_username, self.group)
-
-
-def process_invitations(user):
-    """
-    Processes invitations for users and adds them to
-    the group they've been invited to.
-    """
-    for invitation in Invitation.objects.filter(lp_username=user.username):
-        group = invitation.group
-        group.members.add(user)
-        group.save()
-        invitation.delete()
-
-
 def process_auto_share_groups(sender, instance, created, **kwargs):
     """
     Automatically shares a record with the auto_share_groups
@@ -167,11 +144,6 @@ def process_auto_share_groups(sender, instance, created, **kwargs):
             pass
 
 
-def process_invitations_for_user(sender, instance, created, **kwargs):
-    if created:
-        process_invitations(instance)
-
-
 def populate_sharing(sender, instance, created, **kwargs):
     """
     When new groups are created, if they can be shared with
@@ -185,5 +157,5 @@ def populate_sharing(sender, instance, created, **kwargs):
             group.can_share_with.remove(instance)
     instance.can_share_with.add(instance)
 
-post_save.connect(process_invitations_for_user, User)
+
 post_save.connect(populate_sharing, AccessGroup)
