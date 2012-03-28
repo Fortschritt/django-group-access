@@ -24,7 +24,7 @@ setup(
         "Programming Language :: Python :: 2.7",
     ],
     zip_safe=True,
-    packages=['django_group_access'],
+    packages=['django_group_access', 'django_group_access.migrations'],
     # dependencies
     install_requires=['django >= 1.2'],
 )
