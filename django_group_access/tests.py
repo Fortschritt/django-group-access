@@ -19,6 +19,8 @@ from django_group_access.sandbox.models import (
     Project,
     Release,
     Unrestricted,
+    UniqueModel,
+    UniqueForm,
 )
 from django_group_access.models import AccessGroup
 
@@ -734,15 +736,15 @@ class DbMethodsHaveRestrictionsAppliedTest(SyncingTestCase):
         self.group1 = AccessGroup.objects.create(name='group1')
         self.group2 = AccessGroup.objects.create(name='group2')
         self.user = _create_user()
-        other_user = _create_user()
+        self.other_user = _create_user()
         self.project1 = Project.objects.create(
             name='project1', owner=self.user)
         self.project2 = Project.objects.create(
-            name='project2', owner=other_user)
+            name='project2', owner=self.other_user)
         self.machine1 = Machine.objects.create(
             name='machine1', owner=self.user)
         self.machine2 = Machine.objects.create(
-            name='machine2', owner=other_user)
+            name='machine2', owner=self.other_user)
         self.project1.machines.add(self.machine1)
         self.project1.machines.add(self.machine2)
         self.machine1.access_groups.add(self.group1)
@@ -774,6 +776,15 @@ class DbMethodsHaveRestrictionsAppliedTest(SyncingTestCase):
     def test_count(self):
         self.assertEqual(
             Project.objects.accessible_by_user(self.user).count(), 1)
+
+    def test_exists(self):
+        """
+        Ask if records exist that we're not allowed to see, should return
+        False.
+        """
+        self.assertFalse(
+            Project.objects.accessible_by_user(
+                self.user).filter(owner=self.other_user).exists())
 
     def test_latest(self):
         self.assertEqual(
@@ -1017,6 +1028,41 @@ class AutomaticFilteringTest(SyncingTestCase):
         self.assertEqual(storage_test_thread_2.stored_user, self.other_user)
         # our local test thread has no user
         self.assertEqual(middleware.get_access_control_user(), None)
+
+
+class UniqueContraintsInModelForms(SyncingTestCase):
+    """
+    Test that unique constraints are handled when using
+    a ModelForm.
+    """
+    def setUp(self):
+        class MockRequest(object):
+            pass
+        self.MockRequest = MockRequest
+        self.user = _create_user()
+        other_user = _create_user()
+        # self.user cannot see this record
+        UniqueModel.objects.create(name='my name', owner=other_user)
+
+    def test_all_records_used_to_check_unique_fields(self):
+        """
+        When saving a ModelForm while automatic filtering is
+        active, all records are used when checking unique fields.
+        """
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = self.user
+        processor.process_request(request)
+
+        # assert the test data is as expected
+        self.assertEqual(set([]), set(UniqueModel.objects.filter()))
+
+        data = {'name': 'my name'}
+        form = UniqueForm(data)
+        self.assertFalse(
+            form.is_valid(),
+            'Form should not be valid if all records in the db '
+            'were used to check uniqueness.')
 
 
 counter = itertools.count()
