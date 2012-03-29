@@ -1,4 +1,5 @@
 # Copyright 2012 Canonical Ltd.
+from django import forms
 from django.db import models
 from django_group_access import register
 
@@ -63,6 +64,19 @@ class Release(models.Model):
         return self.name
 
 
+class UniqueModel(models.Model):
+    name = models.CharField(max_length=64, unique=True)
+
+    def __unicode__(self):
+        return self.name
+
+
+class UniqueForm(forms.ModelForm):
+
+    class Meta:
+        model = UniqueModel
+
+
 register(AccessRestrictedModel)
 register(AccessRestrictedParent, control_relation='accessrestrictedmodel')
 register(Project, unrestricted_manager='objects_unrestricted')
@@ -75,3 +89,6 @@ register(Release, control_relation='build__project')
 # a project can have many machines, a machine can be in many projects,
 # so this is here to test the ManyToMany related records filtering
 register(Machine)
+
+# to test unique constraints when using ModelForms
+register(UniqueModel)

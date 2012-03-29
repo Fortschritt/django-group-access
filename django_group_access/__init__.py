@@ -1,6 +1,8 @@
 # Copyright 2012 Canonical Ltd.
 __all__ = ['register', ]
 
+import traceback
+
 from django.db.models import query, manager
 from django.db.models.fields import related
 
@@ -11,7 +13,7 @@ register = registration.register
 
 """
 Django creates managers in a whole bunch of places, sometimes
-defining the classs dynamically inside a closure, which makes
+defining the class dynamically inside a closure, which makes
 decorating every manager creation a tricky job. So we add a mixin
 to the base Manager class so that we're guaranteed to have the
 access control code available no matter which Manager we're using.
@@ -24,13 +26,24 @@ if QuerySetMixin not in query.QuerySet.__bases__:
     query.QuerySet.__bases__ += (QuerySetMixin, )
 
 
-def wrap_db_method(func):
+def wrap_db_method(func, used_in_unique_check=False):
     """
     When the queryset is going to go to the database, apply
-    the access control filters.
+    the access control filters unless we're currently doing
+    uniqueness checks.
     """
     def db_wrapper(self, *args, **kwargs):
-        queryset = self._filter_for_access_control()
+        apply_access_control = True
+        if used_in_unique_check:
+            # if we're performing unique checks, we must not
+            # filter for access control.
+            apply_access_control = not bool(
+                [t for t in traceback.extract_stack()
+                if t[2] == '_perform_unique_checks'])
+        if apply_access_control:
+            queryset = self._filter_for_access_control()
+        else:
+            queryset = self
         return func(queryset, *args, **kwargs)
     return db_wrapper
 
@@ -41,6 +54,9 @@ query.QuerySet.iterator = wrap_db_method(query.QuerySet.iterator)
 query.QuerySet.count = wrap_db_method(query.QuerySet.count)
 query.QuerySet.in_bulk = wrap_db_method(query.QuerySet.in_bulk)
 query.QuerySet.__getitem__ = wrap_db_method(query.QuerySet.__getitem__)
+# exists is used to do uniqueness checks when validating models.
+query.QuerySet.exists = wrap_db_method(
+    query.QuerySet.exists, used_in_unique_check=True)
 
 
 def wrap_get_query_set(func):
