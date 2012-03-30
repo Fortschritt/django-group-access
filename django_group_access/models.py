@@ -42,7 +42,7 @@ class QuerySetMixin:
         """
         Implements the access rules. Must return a set of Q conditions
         matching available records. If we get here and the user is not
-        authenticated, DGA_ANONYMOUS_SEES_UNSHARED_RECORDS must be True.
+        authenticated, DGA_UNSHARED_RECORDS_ARE_PUBLIC must be True.
         """
         if user.is_authenticated():
 
@@ -77,8 +77,11 @@ class QuerySetMixin:
                 user_groups = AccessGroup.objects.filter(members=user)
                 # either the record is in the user's access groups, or
                 # directly owned by the user
-                return (models.Q(access_groups__in=user_groups) |
-                        models.Q(owner=user))
+                rules = models.Q(access_groups__in=user_groups)
+                rules = rules | models.Q(owner=user)
+                if getattr(settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC', False):
+                    rules = rules | models.Q(access_groups__isnull=True)
+                return rules
             else:
                 # records that are not in any access group
                 return models.Q(access_groups__isnull=True)
@@ -101,9 +104,9 @@ class QuerySetMixin:
             user = middleware.get_access_control_user()
 
         if user is not None:
-            anonymous_sees_unshared = getattr(
-                settings, 'DGA_ANONYMOUS_SEES_UNSHARED_RECORDS', False)
-            if not user.is_authenticated() and not anonymous_sees_unshared:
+            unshared_are_public = getattr(
+                settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC', False)
+            if not user.is_authenticated() and not unshared_are_public:
                 return self.model.objects.none()
             # this stops any further filtering while the filtering rules
             # are applied

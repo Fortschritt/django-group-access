@@ -924,7 +924,7 @@ class AutomaticFilteringTest(SyncingTestCase):
             name='build1', owner=self.user, project=self.project1)
         Build.objects.create(
             name='build2', owner=self.other_user, project=self.project1)
-        Release.objects.create(name='release1', build=build1)
+        self.release = Release.objects.create(name='release1', build=build1)
         self.MockRequest = MockRequest
 
     def tearDown(self):
@@ -1011,12 +1011,12 @@ class AutomaticFilteringTest(SyncingTestCase):
     def test_anonymous_user_sees_nothing(self):
         """
         Anonymous users should have no records visible with
-        DGA_ANONYMOUS_SEES_UNSHARED_RECORDS unset or False
+        DGA_UNSHARED_RECORDS_ARE_PUBLIC unset or False
         """
         old_setting = getattr(
-            settings, 'DGA_ANONYMOUS_SEES_UNSHARED_RECORDS',
+            settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC',
             False)
-        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = False
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = False
         Project.objects.create(name='not shared')
         processor = middleware.DjangoGroupAccessMiddleware()
         request = self.MockRequest()
@@ -1024,18 +1024,18 @@ class AutomaticFilteringTest(SyncingTestCase):
         processor.process_request(request)
         projects = Project.objects.all()
         self.assertEqual(projects.count(), 0)
-        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = old_setting
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = old_setting
 
     def test_anonymous_user_sees_records_that_have_not_been_restricted(self):
         """
-        If the DGA_ANONYMOUS_SEES_UNSHARED_RECORDS
+        If the DGA_UNSHARED_RECORDS_ARE_PUBLIC
         setting is True, anonymous users see all records that have not
         been explicitly shared with any access groups.
         """
         old_setting = getattr(
-            settings, 'DGA_ANONYMOUS_SEES_UNSHARED_RECORDS',
+            settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC',
             False)
-        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = True
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = True
         Project.objects.create(name='not shared')
         processor = middleware.DjangoGroupAccessMiddleware()
         request = self.MockRequest()
@@ -1044,20 +1044,20 @@ class AutomaticFilteringTest(SyncingTestCase):
         projects = Project.objects.all()
         self.assertEqual(projects.count(), 1)
         self.assertEqual(projects[0].name, 'not shared')
-        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = old_setting
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = old_setting
 
     def test_anonymous_user_sees_unshared_controlled_through_relation(self):
         """
-        If the DGA_ANONYMOUS_SEES_UNSHARED_RECORDS
+        If the DGA_UNSHARED_RECORDS_ARE_PUBLIC
         setting is True, anonymous users see all records that have not
         been explicitly shared with any access groups.
         This test is to check models restricted by a control_relation work
         with this setting.
         """
         old_setting = getattr(
-            settings, 'DGA_ANONYMOUS_SEES_UNSHARED_RECORDS',
+            settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC',
             False)
-        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = True
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = True
         project = Project.objects.create(name='not shared')
         build = Build.objects.create(project=project)
         release = Release.objects.create(build=build)
@@ -1068,7 +1068,49 @@ class AutomaticFilteringTest(SyncingTestCase):
         releases = Release.objects.all()
         self.assertEqual(releases.count(), 1)
         self.assertEqual(releases[0], release)
-        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = old_setting
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = old_setting
+
+    def test_authenticaed_user_sees_unshared_public_records(self):
+        """
+        If the DGA_UNSHARED_RECORDS_ARE_PUBLIC
+        setting is True, authenticated users see all records that have not
+        been explicitly shared with any access groups.
+        """
+        old_setting = getattr(
+            settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC',
+            False)
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = True
+        project = Project.objects.create(name='not shared')
+        build = Build.objects.create(project=project)
+        release = Release.objects.create(build=build)
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = self.user
+        processor.process_request(request)
+        releases = Release.objects.all()
+        self.assertEqual(releases.count(), 2)
+        self.assertEqual(set(releases), set([release, self.release]))
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = old_setting
+
+    def test_authenticated_user_sees_unshared_records(self):
+        """
+        If the DGA_UNSHARED_RECORDS_ARE_PUBLIC
+        setting is True, authenticated users see all records that have not
+        been explicitly shared with any access groups.
+        """
+        old_setting = getattr(
+            settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC',
+            False)
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = True
+        project = Project.objects.create(name='not shared')
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = self.user
+        processor.process_request(request)
+        projects = Project.objects.all()
+        self.assertEqual(projects.count(), 2)
+        self.assertEqual(set(projects), set([project, self.project1]))
+        settings.DGA_UNSHARED_RECORDS_ARE_PUBLIC = old_setting
 
     def test_user_storage_is_local_to_current_thread(self):
         """
