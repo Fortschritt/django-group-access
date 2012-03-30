@@ -88,6 +88,15 @@ For ease of sharing data between groups, AccessGroup has a property called
 by the group will automatically be shared with.
 
 
+Public record mode
+------------------
+
+If you want to have all data public by default, and use the access groups
+to restrict access to individual records add the following to settings.py
+
+    DGA_UNSHARED_RECORDS_ARE_PUBLIC = True
+
+
 Automatically restricting based on logged in user
 -------------------------------------------------
 
