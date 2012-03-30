@@ -1,5 +1,6 @@
 # Copyright 2012 Canonical Ltd.
 from django.db import models
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 
@@ -40,31 +41,47 @@ class QuerySetMixin:
     def _get_accessible_by_user_filter_rules(self, user):
         """
         Implements the access rules. Must return a set of Q conditions
-        matching available records.
+        matching available records. If we get here and the user is not
+        authenticated, DGA_ANONYMOUS_SEES_UNSHARED_RECORDS must be True.
         """
-        if user.is_superuser:
-            return models.Q()
+        if user.is_authenticated():
 
-        if AccessGroup.objects.filter(members=user, supergroup=True).count():
-            return models.Q()
+            if user.is_superuser:
+                return models.Q()
+
+            if AccessGroup.objects.filter(
+                members=user, supergroup=True).count():
+                return models.Q()
 
         if hasattr(self.model, 'access_control_relation'):
+            # access control is managed by a related record
             access_relation = getattr(self.model, 'access_control_relation')
+            rules = models.Q()
+            if user.is_authenticated():
+                # direct owner
+                rules = rules | models.Q(
+                    **{'%s__owner' % access_relation: user})
+                # in access groups the user is in
+                rules = rules | models.Q(
+                    **{'%s__access_groups__in' % access_relation:
+                        AccessGroup.objects.filter(members=user)})
+            # related records not shared with anyone at all
+            # or no related records
+            rules = rules | models.Q(
+                **{'%s__access_groups__isnull' % access_relation: True})
 
-            access_groups_dict = {
-                '%s__access_groups__in' % access_relation:
-                    AccessGroup.objects.filter(members=user)}
-            no_related_records = {'%s__isnull' % access_relation: True}
-            direct_owner_dict = {'%s__owner' % access_relation: user}
-
-            return (
-                models.Q(**access_groups_dict) |
-                models.Q(**direct_owner_dict) |
-                models.Q(**no_related_records))
+            return rules
         else:
-            user_groups = AccessGroup.objects.filter(members=user)
-            return (models.Q(access_groups__in=user_groups) |
-                    models.Q(owner=user))
+            # access controls are directly on the record
+            if user.is_authenticated():
+                user_groups = AccessGroup.objects.filter(members=user)
+                # either the record is in the user's access groups, or
+                # directly owned by the user
+                return (models.Q(access_groups__in=user_groups) |
+                        models.Q(owner=user))
+            else:
+                # records that are not in any access group
+                return models.Q(access_groups__isnull=True)
 
     def _filter_for_access_control(self):
         """
@@ -84,7 +101,9 @@ class QuerySetMixin:
             user = middleware.get_access_control_user()
 
         if user is not None:
-            if not user.is_authenticated():
+            anonymous_sees_unshared = getattr(
+                settings, 'DGA_ANONYMOUS_SEES_UNSHARED_RECORDS', False)
+            if not user.is_authenticated() and not anonymous_sees_unshared:
                 return self.model.objects.none()
             # this stops any further filtering while the filtering rules
             # are applied

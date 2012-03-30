@@ -311,6 +311,18 @@ class AccessTest(SyncingTestCase):
             self.superuser)
         self.assertEqual(available.count(), 3)
 
+    def test_can_see_records_with_no_controlling_access_records(self):
+        """
+        If a models is defined as having a control relation, but the
+        control relation has no records to determine access, it is
+        accessible.
+        """
+        user = _create_user()
+        record = AccessRestrictedParent.objects.create(
+            name='no related records')
+        available = AccessRestrictedParent.objects.accessible_by_user(user)
+        self.assertEqual(available.count(), 1)
+        self.assertEqual(available[0], record)
 
 class MetaInformationPropagationTest(SyncingTestCase):
     """
@@ -906,10 +918,13 @@ class AutomaticFilteringTest(SyncingTestCase):
         self.project1.machines.add(self.machine2)
         self.machine1.access_groups.add(self.group1)
         self.machine2.access_groups.add(self.group2)
-        Build.objects.create(
+        self.project1.access_groups.add(self.group1)
+        self.project2.access_groups.add(self.group2)
+        build1 = Build.objects.create(
             name='build1', owner=self.user, project=self.project1)
         Build.objects.create(
             name='build2', owner=self.other_user, project=self.project1)
+        Release.objects.create(name='release1', build=build1)
         self.MockRequest = MockRequest
 
     def tearDown(self):
@@ -995,14 +1010,65 @@ class AutomaticFilteringTest(SyncingTestCase):
 
     def test_anonymous_user_sees_nothing(self):
         """
-        Anonymous users should have no records visible.
+        Anonymous users should have no records visible with
+        DGA_ANONYMOUS_SEES_UNSHARED_RECORDS unset or False
         """
+        old_setting = getattr(
+            settings, 'DGA_ANONYMOUS_SEES_UNSHARED_RECORDS',
+            False)
+        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = False
+        Project.objects.create(name='not shared')
         processor = middleware.DjangoGroupAccessMiddleware()
         request = self.MockRequest()
         request.user = AnonymousUser()
         processor.process_request(request)
         projects = Project.objects.all()
         self.assertEqual(projects.count(), 0)
+        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = old_setting
+
+    def test_anonymous_user_sees_records_that_have_not_been_restricted(self):
+        """
+        If the DGA_ANONYMOUS_SEES_UNSHARED_RECORDS
+        setting is True, anonymous users see all records that have not
+        been explicitly shared with any access groups.
+        """
+        old_setting = getattr(
+            settings, 'DGA_ANONYMOUS_SEES_UNSHARED_RECORDS',
+            False)
+        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = True
+        Project.objects.create(name='not shared')
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = AnonymousUser()
+        processor.process_request(request)
+        projects = Project.objects.all()
+        self.assertEqual(projects.count(), 1)
+        self.assertEqual(projects[0].name, 'not shared')
+        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = old_setting
+
+    def test_anonymous_user_sees_unshared_controlled_through_relation(self):
+        """
+        If the DGA_ANONYMOUS_SEES_UNSHARED_RECORDS
+        setting is True, anonymous users see all records that have not
+        been explicitly shared with any access groups.
+        This test is to check models restricted by a control_relation work
+        with this setting.
+        """
+        old_setting = getattr(
+            settings, 'DGA_ANONYMOUS_SEES_UNSHARED_RECORDS',
+            False)
+        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = True
+        project = Project.objects.create(name='not shared')
+        build = Build.objects.create(project=project)
+        release = Release.objects.create(build=build)
+        processor = middleware.DjangoGroupAccessMiddleware()
+        request = self.MockRequest()
+        request.user = AnonymousUser()
+        processor.process_request(request)
+        releases = Release.objects.all()
+        self.assertEqual(releases.count(), 1)
+        self.assertEqual(releases[0], release)
+        settings.DGA_ANONYMOUS_SEES_UNSHARED_RECORDS = old_setting
 
     def test_user_storage_is_local_to_current_thread(self):
         """
