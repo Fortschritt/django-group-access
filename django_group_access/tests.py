@@ -690,6 +690,18 @@ class RegistrationTest(TestCase):
             registration.is_auto_filtered(
                 DoNotAutoFilterRegistrationTestModel))
 
+    def test_related_name_on_owner(self):
+        """
+        Related name on owner should be include the model class name
+        to prevent related_name clashes.
+        """
+        class RelatedNameTestModel(models.Model):
+            pass
+        registration.register(RelatedNameTestModel)
+        self.assertEqual(
+            RelatedNameTestModel.owner.field.rel.related_name,
+            'relatednametestmodel_owner')
+
 
 class UnrestrictedAccessTest(SyncingTestCase):
     """

@@ -31,8 +31,11 @@ def register(
     if auto_filter:
         _auto_filter_models.add(model)
 
+    reverse = '%s_owner' % str(model).split("'")[1].split('.')[-1].lower()
+
     ForeignKey(
-        User, null=True, blank=True).contribute_to_class(model, 'owner')
+        User, null=True, blank=True, related_name=reverse).contribute_to_class(
+            model, 'owner')
 
     if unrestricted_manager:
         un_manager = manager.Manager()
