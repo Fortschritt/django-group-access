@@ -78,7 +78,9 @@ class UniqueForm(forms.ModelForm):
 
 
 register(AccessRestrictedModel)
-register(AccessRestrictedParent, control_relation='accessrestrictedmodel')
+register(
+    AccessRestrictedParent, control_relation='accessrestrictedmodel',
+    owner=False)
 register(Project, unrestricted_manager='objects_unrestricted')
 register(Build, control_relation='project', auto_filter=False)
 
@@ -90,5 +92,5 @@ register(Release, control_relation='build__project')
 # so this is here to test the ManyToMany related records filtering
 register(Machine)
 
-# to test unique constraints when using ModelForms
-register(UniqueModel)
+# to test unique constraints when using ModelForms and ownerless records
+register(UniqueModel, owner=False)
