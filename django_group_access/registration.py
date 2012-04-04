@@ -17,7 +17,7 @@ def is_auto_filtered(model):
 
 def register(
     model, control_relation=False, unrestricted_manager=False,
-    auto_filter=True):
+    auto_filter=True, owner=True):
     """
     Register a model with the access control code.
     """
@@ -33,9 +33,11 @@ def register(
 
     reverse = '%s_owner' % str(model).split("'")[1].split('.')[-1].lower()
 
-    ForeignKey(
-        User, null=True, blank=True, related_name=reverse).contribute_to_class(
-            model, 'owner')
+    if owner:
+        ForeignKey(
+            User, null=True, blank=True,
+            related_name=reverse).contribute_to_class(
+                model, 'owner')
 
     if unrestricted_manager:
         un_manager = manager.Manager()

@@ -324,6 +324,7 @@ class AccessTest(SyncingTestCase):
         self.assertEqual(available.count(), 1)
         self.assertEqual(available[0], record)
 
+
 class MetaInformationPropagationTest(SyncingTestCase):
     """
     Test that the meta information about the access control
@@ -645,6 +646,16 @@ class RegistrationTest(TestCase):
         self.assertTrue(isinstance(
             AddOwnerTestModel.owner,
             models.fields.related.ReverseSingleRelatedObjectDescriptor))
+
+    def test_register_does_not_add_owner_to_model(self):
+        """
+        Registered a model does not the owner field of registered with
+        owner=False.
+        """
+        class DontAddOwnerTestModel(models.Model):
+            pass
+        registration.register(DontAddOwnerTestModel, owner=False)
+        self.assertFalse(hasattr(DontAddOwnerTestModel, 'owner'))
 
     def test_model_with_control_relation_does_not_get_access_groups(self):
         """
@@ -1160,9 +1171,14 @@ class UniqueContraintsInModelForms(SyncingTestCase):
             pass
         self.MockRequest = MockRequest
         self.user = _create_user()
+        group1 = AccessGroup.objects.create(name='group1')
+        group2 = AccessGroup.objects.create(name='group2')
         other_user = _create_user()
+        group1.members.add(self.user)
+        group2.members.add(other_user)
         # self.user cannot see this record
-        UniqueModel.objects.create(name='my name', owner=other_user)
+        record = UniqueModel.objects.create(name='my name')
+        record.access_groups.add(group2)
 
     def test_all_records_used_to_check_unique_fields(self):
         """

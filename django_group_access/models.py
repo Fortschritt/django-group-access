@@ -58,9 +58,10 @@ class QuerySetMixin:
             access_relation = getattr(self.model, 'access_control_relation')
             rules = models.Q()
             if user.is_authenticated():
-                # direct owner
-                rules = rules | models.Q(
-                    **{'%s__owner' % access_relation: user})
+                if hasattr(self.model, 'owner'):
+                    # direct owner
+                    rules = rules | models.Q(
+                        **{'%s__owner' % access_relation: user})
                 # in access groups the user is in
                 rules = rules | models.Q(
                     **{'%s__access_groups__in' % access_relation:
@@ -78,7 +79,8 @@ class QuerySetMixin:
                 # either the record is in the user's access groups, or
                 # directly owned by the user
                 rules = models.Q(access_groups__in=user_groups)
-                rules = rules | models.Q(owner=user)
+                if hasattr(self.model, 'owner'):
+                    rules = rules | models.Q(owner=user)
                 if getattr(settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC', False):
                     rules = rules | models.Q(access_groups__isnull=True)
                 return rules
@@ -154,7 +156,7 @@ def process_auto_share_groups(sender, instance, created, **kwargs):
     Automatically shares a record with the auto_share_groups
     on the groups the owner is a member of.
     """
-    if created:
+    if created and hasattr(instance, 'owner'):
         try:
             owner = instance.owner
             if owner is None:
