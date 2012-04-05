@@ -62,10 +62,10 @@ class AccessRelationTests(SyncingTestCase):
         self.release = Release(
             owner=self.owner, name='release', build=self.build)
         self.release.save()
-        group = self._create_access_group_with_one_member()
-        self.project.access_groups.add(group)
+        self.group = self._create_access_group_with_one_member()
+        self.project.access_groups.add(self.group)
         self.project.save()
-        self.user_with_access = group.members.all()[0]
+        self.user_with_access = self.group.members.all()[0]
         self.user_without_access = _create_user()
 
     def _create_access_group_with_one_member(self):
@@ -110,6 +110,40 @@ class AccessRelationTests(SyncingTestCase):
             [r.name for r in query_method(self.user_with_access)])
         self.assertEqual(
             [], [r for r in query_method(self.user_without_access)])
+
+    def test_visible_if_no_related_records(self):
+        """
+        A model with an access relation that has no records will be shown.
+        """
+        AccessRestrictedParent.objects.create(name='blah44')
+        records = AccessRestrictedParent.objects.accessible_by_user(
+            self.user_without_access)
+        self.assertEqual(records.count(), 1)
+        self.assertEqual(records[0].name, 'blah44')
+
+    def test_not_visible_if_all_related_records_are_hidden_from_user(self):
+        """
+        If all the related records are not available to the user, the parent
+        record is also not visible.
+        """
+        parent = AccessRestrictedParent.objects.create(name='blah_parent')
+        child = AccessRestrictedModel.objects.create(parent=parent)
+        child.access_groups.add(self.group)
+
+        records = AccessRestrictedParent.objects.accessible_by_user(
+            self.user_without_access)
+        self.assertEqual(set(records), set([]))
+
+    def test_visible_if_related_records_only_have_owner_set(self):
+        """
+        If access groups are not used and access is only managed by
+        setting the owner, the records should still show.
+        """
+        user = self.user_without_access
+        parent = AccessRestrictedParent.objects.create(name='blah_parent')
+        AccessRestrictedModel.objects.create(parent=parent, owner=user)
+        records = AccessRestrictedParent.objects.accessible_by_user(user)
+        self.assertEqual(set([parent]), set(records))
 
 
 class AccessGroupSharingTest(TestCase):

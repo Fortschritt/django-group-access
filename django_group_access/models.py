@@ -66,10 +66,16 @@ class QuerySetMixin:
                 rules = rules | models.Q(
                     **{'%s__access_groups__in' % access_relation:
                         AccessGroup.objects.filter(members=user)})
-            # related records not shared with anyone at all
-            # or no related records
+                # or owned by user
+                rules = rules | models.Q(
+                    **{'%s__owner' % access_relation: user})
+            # related records do not exist
             rules = rules | models.Q(
-                **{'%s__access_groups__isnull' % access_relation: True})
+                **{'%s__isnull' % access_relation: True})
+            # or related records not shared, and public mode is on
+            if getattr(settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC', False):
+                rules = rules | models.Q(
+                    **{'%s__access_groups__isnull' % access_relation: True})
 
             return rules
         else:

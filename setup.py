@@ -12,7 +12,7 @@ setup(
     url='https://launchpad.net/django-group-access',
     license='LGPLv3',
     keywords=['django', 'ownership', 'models'],
-    version="1.1.3",
+    version="1.1.4",
     classifiers=[
         "Development Status :: 4 - Beta",
         'Environment :: Web Environment',
