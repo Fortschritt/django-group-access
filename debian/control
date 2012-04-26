@@ -1,0 +1,10 @@
+Source: django-group-access
+Section: python
+Priority: optional
+Maintainer: Mike Heald <mike.heald@canonical.com>
+Package: python-django-group-access
+Version: 1.1.4-1ubuntu
+Architecture: all
+Homepage: https://launchpad.net/django-group-access
+Depends: python2.7, python (>= 2.7.1-0ubuntu2), python (<< 2.8), python-django (>= 1.2), python-django (<< 1.4)
+Description: Group based access for django models
