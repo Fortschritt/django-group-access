@@ -1,4 +1,10 @@
-django-group-access (1.1.4) UNRELEASED; urgency=low
+django-group-access (1.1.5) precise; urgency=low
+
+  * Corrected Django dependancies
+
+ -- Mike Heald <mike.heald@canonical.com>  Tue, 26 Apr 2012 16:47:00 +0100
+
+django-group-access (1.1.4) precise; urgency=low
 
   * Initial release of package for ubuntu.
 
