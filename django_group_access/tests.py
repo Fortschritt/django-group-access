@@ -31,8 +31,10 @@ class SyncingTestCase(TestCase):
     def _pre_setup(self):
         # Add the models to the db.
         self._original_installed_apps = list(settings.INSTALLED_APPS)
+        apps = list(settings.INSTALLED_APPS)
         for app in self.apps:
-            settings.INSTALLED_APPS.append(app)
+            apps.append(app)
+        settings.INSTALLED_APPS = apps
         loading.cache.loaded = False
         call_command('syncdb', interactive=False, verbosity=0, migrate=False)
         # Call the original method that does the fixtures etc.
