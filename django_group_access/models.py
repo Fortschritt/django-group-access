@@ -44,14 +44,29 @@ class QuerySetMixin:
         matching available records. If we get here and the user is not
         authenticated, DGA_UNSHARED_RECORDS_ARE_PUBLIC must be True.
         """
+        app, model_label = settings.DGA_GROUP_MODEL.split('.')
+        group_model = models.get_model(app, model_label)
+        group_dict = {}
+
+        if hasattr(group_model, 'user_set'):
+            group_dict['user'] = user
+
+        if hasattr(group_model, 'members'):
+            group_dict['members'] = user
+
         if user.is_authenticated():
 
             if user.is_superuser:
                 return models.Q()
 
-            if AccessGroup.objects.filter(
-                members=user, supergroup=True).count():
-                return models.Q()
+            has_supergroup = bool(
+                [f for f in group_model._meta.fields
+                if f.name == 'supergroup'])
+
+            if has_supergroup:
+                if group_model.objects.filter(
+                    **group_dict).filter(supergroup=True).count():
+                    return models.Q()
 
         if hasattr(self.model, 'access_control_relation'):
             # access control is managed by a related record
@@ -65,7 +80,7 @@ class QuerySetMixin:
                 # in access groups the user is in
                 rules = rules | models.Q(
                     **{'%s__access_groups__in' % access_relation:
-                        AccessGroup.objects.filter(members=user)})
+                        group_model.objects.filter(**group_dict)})
                 # or owned by user
                 rules = rules | models.Q(
                     **{'%s__owner' % access_relation: user})
@@ -81,7 +96,7 @@ class QuerySetMixin:
         else:
             # access controls are directly on the record
             if user.is_authenticated():
-                user_groups = AccessGroup.objects.filter(members=user)
+                user_groups = group_model.objects.filter(**group_dict)
                 # either the record is in the user's access groups, or
                 # directly owned by the user
                 rules = models.Q(access_groups__in=user_groups)

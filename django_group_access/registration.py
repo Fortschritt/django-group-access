@@ -1,7 +1,8 @@
 # Copyright 2012 Canonical Ltd.
-from django.db.models import ForeignKey, ManyToManyField, manager
+from django.db.models import ForeignKey, ManyToManyField, manager, get_model
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
+from django.conf import settings
 
 _registered_models = set([])
 _auto_filter_models = set([])
@@ -50,7 +51,8 @@ def register(
         # have access to the related records, so no need to
         # add the attribute to the class.
         return
+    app, model_label = settings.DGA_GROUP_MODEL.split('.')
     ManyToManyField(
-        AccessGroup, blank=True, null=True).contribute_to_class(
+        get_model(app, model_label), blank=True, null=True).contribute_to_class(
             model, 'access_groups')
     post_save.connect(process_auto_share_groups, model)

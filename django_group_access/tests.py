@@ -1,5 +1,6 @@
 # Copyright 2012 Canonical Ltd.
 import itertools
+import unittest
 
 from django.test import TestCase
 from django.conf import settings
@@ -22,7 +23,31 @@ from django_group_access.sandbox.models import (
     UniqueModel,
     UniqueForm,
 )
-from django_group_access.models import AccessGroup
+
+
+def get_group_model():
+    app, label = settings.DGA_GROUP_MODEL.split('.')
+    return models.get_model(app, label)
+
+
+def has_field(model, field):
+    return bool([f for f in model._meta.fields if f.name == field])
+
+
+# functions to add and remove users from groups
+# without thinking about the interface the group provides
+def get_members(group):
+    if hasattr(group, 'members'):
+        return group.members.all()
+    if hasattr(group, 'user_set'):
+        return group.user_set.all()
+
+
+def add_user(group, user):
+    if hasattr(group, 'members'):
+        group.members.add(user)
+    if hasattr(group, 'user_set'):
+        group.user_set.add(user)
 
 
 class SyncingTestCase(TestCase):
@@ -36,6 +61,7 @@ class SyncingTestCase(TestCase):
             apps.append(app)
         settings.INSTALLED_APPS = apps
         loading.cache.loaded = False
+        self.group_model = get_group_model()
         call_command('syncdb', interactive=False, verbosity=0, migrate=False)
         # Call the original method that does the fixtures etc.
         super(SyncingTestCase, self)._pre_setup()
@@ -67,12 +93,12 @@ class AccessRelationTests(SyncingTestCase):
         self.group = self._create_access_group_with_one_member()
         self.project.access_groups.add(self.group)
         self.project.save()
-        self.user_with_access = self.group.members.all()[0]
+        self.user_with_access = get_members(self.group)[0]
         self.user_without_access = _create_user()
 
     def _create_access_group_with_one_member(self):
-        group = AccessGroup.objects.create(name='oem')
-        group.members.add(_create_user())
+        group = self.group_model.objects.create(name='oem')
+        add_user(group, _create_user())
         return group
 
     def test_direct_reference(self):
@@ -148,32 +174,6 @@ class AccessRelationTests(SyncingTestCase):
         self.assertEqual(set([parent]), set(records))
 
 
-class AccessGroupSharingTest(TestCase):
-
-    def test_can_be_shared_group_is_added_to_other_sharing_lists(self):
-        AccessGroup.objects.all().delete()
-        group_a = AccessGroup(name='A', can_be_shared_with=False)
-        group_a.save()
-        group_b = AccessGroup(name='B', can_be_shared_with=False)
-        group_b.save()
-
-        self.assertEqual(str(group_a.can_share_with.all()), str([group_a]))
-        self.assertEqual(str(group_b.can_share_with.all()), str([group_b]))
-
-        group_a.can_be_shared_with = True
-        group_a.save()
-
-        self.assertEqual(str(group_a.can_share_with.all()), str([group_a]))
-        self.assertEqual(
-            str(group_b.can_share_with.all()), str([group_a, group_b]))
-
-        group_a.can_be_shared_with = False
-        group_a.save()
-
-        self.assertEqual(str(group_a.can_share_with.all()), str([group_a]))
-        self.assertEqual(str(group_b.can_share_with.all()), str([group_b]))
-
-
 class AccessTest(SyncingTestCase):
     everyone = None
     public_group = None
@@ -185,11 +185,11 @@ class AccessTest(SyncingTestCase):
         for i in range(3):
             u = User.objects.create_user(
                 '%s%d' % (prefix, i), '%s%d@example.com' % (prefix, i), prefix)
-            group.members.add(u)
-            self.everyone.members.add(u)
+            add_user(group, u)
+            add_user(self.everyone, u)
 
     def _load_owned_models(self, group):
-        users = group.members.all().order_by('username')
+        users = get_members(group).order_by('username')
 
         # parent class for these resources
         p = AccessRestrictedParent(name='%s parent record' % group.name)
@@ -197,9 +197,9 @@ class AccessTest(SyncingTestCase):
 
         # one model per user, two for the first user
         for (idx, u) in enumerate(users):
-            m = AccessRestrictedModel(
+            m = AccessRestrictedModel.objects.create(
                 owner=u, name='%s record %d' % (group.name, idx), parent=p)
-            m.save()
+            m.access_groups.add(group)
 
         u = users[0]
         m = AccessRestrictedModel(
@@ -207,23 +207,11 @@ class AccessTest(SyncingTestCase):
         m.save()
 
     def setUp(self):
-        self.everyone = AccessGroup.objects.get_or_create(name='everyone')[0]
+        self.everyone = self.group_model.objects.get_or_create(name='everyone')[0]
 
-        self.public_group = AccessGroup(name='public')
-        self.public_group.save()
-        self.public_group.auto_share_groups.add(self.everyone)
-        self.public_group.auto_share_groups.add(self.public_group)
-
-        self.restricted_group_a = AccessGroup(name='the cabal')
-        self.restricted_group_a.save()
-        self.restricted_group_a.auto_share_groups.add(self.restricted_group_a)
-
-        self.restricted_group_b = AccessGroup(name='the stonecutters')
-        self.restricted_group_b.save()
-        self.restricted_group_b.auto_share_groups.add(self.restricted_group_b)
-
-        self.supergroup = AccessGroup(name='supergroup', supergroup=True)
-        self.supergroup.save()
+        self.public_group = self.group_model.objects.create(name='public')
+        self.restricted_group_a = self.group_model.objects.create(name='the cabal')
+        self.restricted_group_b = self.group_model.objects.create(name='the stonecutters')
 
         self._load_users('public', self.public_group)
         self._load_users('cabal', self.restricted_group_a)
@@ -233,10 +221,6 @@ class AccessTest(SyncingTestCase):
         self._load_owned_models(self.restricted_group_a)
         self._load_owned_models(self.restricted_group_b)
 
-        su = User.objects.create_user(
-            'supergroupuser', 'supergroup@example.com', 'test')
-        self.supergroup.members.add(su)
-
         User.objects.create_user('nogroupuser', 'nogroup@example.com', 'test')
         self.superuser = User.objects.create_user(
             'superuser', 'super@example.com', 'test')
@@ -244,69 +228,17 @@ class AccessTest(SyncingTestCase):
         self.superuser.save()
 
     def test_get_own_resources(self):
-        u = self.restricted_group_a.members.all().order_by('username')[0]
+        u = get_members(self.restricted_group_a).order_by('username')[0]
         mine = AccessRestrictedModel.objects.get_for_owner(u)
         self.assertEqual(mine.count(), 2)
         self.assertEqual(mine[0].name, 'the cabal record 0')
         self.assertEqual(mine[1].name, 'the cabal record extra')
 
-    def test_accessible_by_user(self):
-        u = self.restricted_group_a.members.all().order_by('username')[0]
-
-        # should return all of the records owned by someone in the user's group
-        # plus all records owned by anyone in a group marked as public
-        available = AccessRestrictedModel.objects.accessible_by_user(user=u)
-        self.assertEqual(available.count(), 8)
-        self.assertEqual(available[0].name, 'public record 0')
-        self.assertEqual(available[1].name, 'public record 1')
-        self.assertEqual(available[2].name, 'public record 2')
-        self.assertEqual(available[3].name, 'public record extra')
-        self.assertEqual(available[4].name, 'the cabal record 0')
-        self.assertEqual(available[5].name, 'the cabal record 1')
-        self.assertEqual(available[6].name, 'the cabal record 2')
-        self.assertEqual(available[7].name, 'the cabal record extra')
-
-        record = AccessRestrictedModel.objects.accessible_by_user(u)\
-                .get(name='public record 2')
-        self.assertTrue(record.name, 'public record 2')
-
-        try:
-            record = AccessRestrictedModel.objects.accessible_by_user(u)\
-                    .get(name='the stonecutters record 1')
-            self.fail(
-                "Shouldn't be able to access other non public group record")
-        except AccessRestrictedModel.DoesNotExist:
-            pass
-
     def test_accessible_parent_records(self):
-        u = self.restricted_group_a.members.all().order_by('username')[0]
+        u = get_members(self.restricted_group_a).order_by('username')[0]
         parents = AccessRestrictedParent.objects.accessible_by_user(u)
-        self.assertEqual(parents.count(), 2)
-        self.assertEqual(parents[0].name, 'public parent record')
-        self.assertEqual(parents[1].name, 'the cabal parent record')
-
-    def test_members_of_supergroup_can_see_all_records(self):
-        u = self.supergroup.members.all()[0]
-        available = AccessRestrictedModel.objects.accessible_by_user(user=u)
-        self.assertEqual(available.count(), 12)
-        self.assertEqual(available[0].name, 'public record 0')
-        self.assertEqual(available[1].name, 'public record 1')
-        self.assertEqual(available[2].name, 'public record 2')
-        self.assertEqual(available[3].name, 'public record extra')
-        self.assertEqual(available[4].name, 'the cabal record 0')
-        self.assertEqual(available[5].name, 'the cabal record 1')
-        self.assertEqual(available[6].name, 'the cabal record 2')
-        self.assertEqual(available[7].name, 'the cabal record extra')
-        self.assertEqual(available[8].name, 'the stonecutters record 0')
-        self.assertEqual(available[9].name, 'the stonecutters record 1')
-        self.assertEqual(available[10].name, 'the stonecutters record 2')
-        self.assertEqual(available[11].name, 'the stonecutters record extra')
-
-        available = AccessRestrictedParent.objects.accessible_by_user(user=u)
-        self.assertEqual(available.count(), 3)
-        self.assertEqual(available[0].name, 'public parent record')
-        self.assertEqual(available[1].name, 'the cabal parent record')
-        self.assertEqual(available[2].name, 'the stonecutters parent record')
+        self.assertEqual(parents.count(), 1)
+        self.assertEqual(parents[0].name, 'the cabal parent record')
 
     def test_can_access_owned_records_if_not_in_a_group(self):
         u = User.objects.create_user(
@@ -320,21 +252,17 @@ class AccessTest(SyncingTestCase):
     def test_can_see_individual_records_shared_with_my_group(self):
         record = AccessRestrictedModel.objects.get(
                     name='the stonecutters record 1')
-        g = AccessGroup.objects.get(name='the cabal')
+        g = self.group_model.objects.get(name='the cabal')
         record.access_groups.add(g)
         record.save()
-        u = g.members.all()[0]
+        u = get_members(g)[0]
         available = AccessRestrictedModel.objects.accessible_by_user(u)
-        self.assertEqual(available.count(), 9)
-        self.assertEqual(available[0].name, 'public record 0')
-        self.assertEqual(available[1].name, 'public record 1')
-        self.assertEqual(available[2].name, 'public record 2')
-        self.assertEqual(available[3].name, 'public record extra')
-        self.assertEqual(available[4].name, 'the cabal record 0')
-        self.assertEqual(available[5].name, 'the cabal record 1')
-        self.assertEqual(available[6].name, 'the cabal record 2')
-        self.assertEqual(available[7].name, 'the cabal record extra')
-        self.assertEqual(available[8].name, 'the stonecutters record 1')
+        self.assertEqual(available.count(), 5)
+        self.assertEqual(available[0].name, 'the cabal record 0')
+        self.assertEqual(available[1].name, 'the cabal record 1')
+        self.assertEqual(available[2].name, 'the cabal record 2')
+        self.assertEqual(available[3].name, 'the cabal record extra')
+        self.assertEqual(available[4].name, 'the stonecutters record 1')
 
     def test_superusers_see_all(self):
         """
@@ -361,6 +289,148 @@ class AccessTest(SyncingTestCase):
         self.assertEqual(available[0], record)
 
 
+class AccessGroupCapabilitiesTest(SyncingTestCase):
+    everyone = None
+    public_group = None
+    restricted_group_a = None
+    restricted_group_b = None
+    supergroup = None
+
+    def _load_users(self, prefix, group):
+        for i in range(3):
+            u = User.objects.create_user(
+                '%s%d' % (prefix, i), '%s%d@example.com' % (prefix, i), prefix)
+            add_user(group, u)
+            add_user(self.everyone, u)
+
+    def _load_owned_models(self, group):
+        users = get_members(group).order_by('username')
+
+        # parent class for these resources
+        p = AccessRestrictedParent(name='%s parent record' % group.name)
+        p.save()
+
+        # one model per user, two for the first user
+        for (idx, u) in enumerate(users):
+            m = AccessRestrictedModel(
+                owner=u, name='%s record %d' % (group.name, idx), parent=p)
+            m.save()
+
+        u = users[0]
+        m = AccessRestrictedModel(
+            owner=u, name='%s record extra' % group.name, parent=p)
+        m.save()
+
+    def setUp(self):
+        self.everyone = self.group_model.objects.get_or_create(name='everyone')[0]
+
+        self.public_group = self.group_model.objects.create(name='public')
+        self.restricted_group_a = self.group_model.objects.create(name='the cabal')
+        self.restricted_group_b = self.group_model.objects.create(name='the stonecutters')
+
+        self.restricted_group_b.auto_share_groups.add(self.restricted_group_b)
+        self.restricted_group_a.auto_share_groups.add(self.restricted_group_a)
+        self.public_group.auto_share_groups.add(self.everyone)
+        self.public_group.auto_share_groups.add(self.public_group)
+
+        self._load_users('public', self.public_group)
+        self._load_users('cabal', self.restricted_group_a)
+        self._load_users('stonecutter', self.restricted_group_b)
+
+        self._load_owned_models(self.public_group)
+        self._load_owned_models(self.restricted_group_a)
+        self._load_owned_models(self.restricted_group_b)
+
+        self.supergroup = self.group_model.objects.create(name='supergroup', supergroup=True)
+        add_user(self.supergroup, _create_user())
+
+        su = User.objects.create_user(
+                'supergroupuser', 'supergroup@example.com', 'test')
+        add_user(self.supergroup, su)
+
+        User.objects.create_user('nogroupuser', 'nogroup@example.com', 'test')
+        self.superuser = User.objects.create_user(
+            'superuser', 'super@example.com', 'test')
+        self.superuser.is_superuser = True
+        self.superuser.save()
+
+    @unittest.skipIf(
+        not hasattr(get_group_model(), 'auto_share_groups'),
+        'Group model does not have auto sharing capabilities.')
+    def test_can_be_shared_group_is_added_to_other_sharing_lists(self):
+        self.group_model.objects.all().delete()
+        group_a = self.group_model(name='A', can_be_shared_with=False)
+        group_a.save()
+        group_b = self.group_model(name='B', can_be_shared_with=False)
+        group_b.save()
+
+        self.assertEqual(str(group_a.can_share_with.all()), str([group_a]))
+        self.assertEqual(str(group_b.can_share_with.all()), str([group_b]))
+
+        group_a.can_be_shared_with = True
+        group_a.save()
+
+        self.assertEqual(str(group_a.can_share_with.all()), str([group_a]))
+        self.assertEqual(
+            str(group_b.can_share_with.all()), str([group_a, group_b]))
+
+        group_a.can_be_shared_with = False
+        group_a.save()
+
+        self.assertEqual(str(group_a.can_share_with.all()), str([group_a]))
+        self.assertEqual(str(group_b.can_share_with.all()), str([group_b]))
+
+    @unittest.skipIf(
+        not hasattr(get_group_model(), 'auto_share_groups'),
+        'Group model does not have auto sharing capabilities.')
+    def test_records_shared_automatically(self):
+        """
+        Saved records should be shared with the auto_share_groups on the groups
+        the creating owner is a member of.
+        """
+        u = get_members(self.restricted_group_a).order_by('username')[0]
+
+        # should return all of the records owned by someone in the user's group
+        # plus all records automatically shared
+        available = AccessRestrictedModel.objects.accessible_by_user(user=u)
+        self.assertEqual(available.count(), 8)
+        self.assertEqual(available[0].name, 'public record 0')
+        self.assertEqual(available[1].name, 'public record 1')
+        self.assertEqual(available[2].name, 'public record 2')
+        self.assertEqual(available[3].name, 'public record extra')
+        self.assertEqual(available[4].name, 'the cabal record 0')
+        self.assertEqual(available[5].name, 'the cabal record 1')
+        self.assertEqual(available[6].name, 'the cabal record 2')
+        self.assertEqual(available[7].name, 'the cabal record extra')
+
+        record = AccessRestrictedModel.objects.accessible_by_user(u)\
+                .get(name='public record 2')
+        self.assertTrue(record.name, 'public record 2')
+
+        try:
+            record = AccessRestrictedModel.objects.accessible_by_user(u)\
+                    .get(name='the stonecutters record 1')
+            self.fail(
+                "Shouldn't be able to access other non public group record")
+        except AccessRestrictedModel.DoesNotExist:
+            pass
+
+    @unittest.skipIf(
+        not has_field(get_group_model(), 'supergroup'),
+        'Group model does not have supergroup capabilities.')
+    def test_members_of_supergroups_see_all(self):
+        """
+        Members of supergroups see all records.
+        """
+        supergroup_member = get_members(self.supergroup)[0]
+        available = AccessRestrictedModel.objects.accessible_by_user(
+            supergroup_member)
+        self.assertEqual(available.count(), 12)
+        available = AccessRestrictedParent.objects.accessible_by_user(
+            supergroup_member)
+        self.assertEqual(available.count(), 3)
+
+
 class MetaInformationPropagationTest(SyncingTestCase):
     """
     Test that the meta information about the access control
@@ -368,8 +438,8 @@ class MetaInformationPropagationTest(SyncingTestCase):
     and querysets correctly.
     """
     def setUp(self):
-        self.group1 = AccessGroup.objects.create(name='group1')
-        self.group2 = AccessGroup.objects.create(name='group2')
+        self.group1 = self.group_model.objects.create(name='group1')
+        self.group2 = self.group_model.objects.create(name='group2')
         self.user = _create_user()
         other_user = _create_user()
         unrestricted = Unrestricted.objects.create(
@@ -534,12 +604,12 @@ class AccessManagerMixinTest(TestCase):
 
 class RelatedRecordFilteringTest(SyncingTestCase):
     def setUp(self):
-        self.group1 = AccessGroup.objects.create(name='group1')
-        self.group2 = AccessGroup.objects.create(name='group2')
+        self.group1 = self.group_model.objects.create(name='group1')
+        self.group2 = self.group_model.objects.create(name='group2')
         self.user = _create_user()
         other_user = _create_user()
-        self.group1.members.add(self.user)
-        self.group2.members.add(other_user)
+        add_user(self.group1, self.user)
+        add_user(self.group2, other_user)
         self.parent1 = AccessRestrictedParent.objects.create(name='parent1')
         self.parent2 = AccessRestrictedParent.objects.create(name='parent2')
         self.child1 = AccessRestrictedModel.objects.create(
@@ -581,8 +651,8 @@ class RelatedRecordFilteringTest(SyncingTestCase):
 
 class ManyToManyRelatedRecordFilteringTest(SyncingTestCase):
     def setUp(self):
-        self.group1 = AccessGroup.objects.create(name='group1')
-        self.group2 = AccessGroup.objects.create(name='group2')
+        self.group1 = self.group_model.objects.create(name='group1')
+        self.group2 = self.group_model.objects.create(name='group2')
         self.user = _create_user()
         other_user = _create_user()
         self.project1 = Project.objects.create(
@@ -769,8 +839,8 @@ class UnrestrictedAccessTest(SyncingTestCase):
     calling .unrestricted()
     """
     def setUp(self):
-        self.group1 = AccessGroup.objects.create(name='group1')
-        self.group2 = AccessGroup.objects.create(name='group2')
+        self.group1 = self.group_model.objects.create(name='group1')
+        self.group2 = self.group_model.objects.create(name='group2')
         self.user = _create_user()
         other_user = _create_user()
         self.project1 = Project.objects.create(
@@ -804,8 +874,8 @@ class DbMethodsHaveRestrictionsAppliedTest(SyncingTestCase):
     has been filtered with accessible_by_user.
     """
     def setUp(self):
-        self.group1 = AccessGroup.objects.create(name='group1')
-        self.group2 = AccessGroup.objects.create(name='group2')
+        self.group1 = self.group_model.objects.create(name='group1')
+        self.group2 = self.group_model.objects.create(name='group2')
         self.user = _create_user()
         self.other_user = _create_user()
         self.project1 = Project.objects.create(
@@ -876,8 +946,8 @@ class RefactorBugsTest(SyncingTestCase):
     support .unrestricted() on querysets.
     """
     def setUp(self):
-        self.group1 = AccessGroup.objects.create(name='group1')
-        self.group2 = AccessGroup.objects.create(name='group2')
+        self.group1 = self.group_model.objects.create(name='group1')
+        self.group2 = self.group_model.objects.create(name='group2')
         self.user = _create_user()
         self.other_user = _create_user()
         self.project1 = Project.objects.create(
@@ -949,8 +1019,8 @@ class AutomaticFilteringTest(SyncingTestCase):
         class MockRequest(object):
             pass
 
-        self.group1 = AccessGroup.objects.create(name='group1')
-        self.group2 = AccessGroup.objects.create(name='group2')
+        self.group1 = self.group_model.objects.create(name='group1')
+        self.group2 = self.group_model.objects.create(name='group2')
         self.user = _create_user()
         self.other_user = _create_user()
         self.project1 = Project.objects.create(
@@ -1207,11 +1277,11 @@ class UniqueContraintsInModelForms(SyncingTestCase):
             pass
         self.MockRequest = MockRequest
         self.user = _create_user()
-        group1 = AccessGroup.objects.create(name='group1')
-        group2 = AccessGroup.objects.create(name='group2')
+        group1 = self.group_model.objects.create(name='group1')
+        group2 = self.group_model.objects.create(name='group2')
         other_user = _create_user()
-        group1.members.add(self.user)
-        group2.members.add(other_user)
+        add_user(group1, self.user)
+        add_user(group2, other_user)
         # self.user cannot see this record
         record = UniqueModel.objects.create(name='my name')
         record.access_groups.add(group2)
