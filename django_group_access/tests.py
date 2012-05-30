@@ -1,6 +1,7 @@
 # Copyright 2012 Canonical Ltd.
 import itertools
 import unittest
+import datetime
 
 from django.test import TestCase
 from django.conf import settings
@@ -80,7 +81,6 @@ class AccessRelationTests(SyncingTestCase):
     on other related models.
     """
     def setUp(self):
-        super(AccessRelationTests, self).setUp()
         self.owner = _create_user()
         self.project = Project(owner=self.owner, name='project')
         self.project.save()
@@ -183,8 +183,9 @@ class AccessTest(SyncingTestCase):
 
     def _load_users(self, prefix, group):
         for i in range(3):
-            u = User.objects.create_user(
-                '%s%d' % (prefix, i), '%s%d@example.com' % (prefix, i), prefix)
+            u = User.objects.create(
+                username='%s%d' % (prefix, i),
+                email='%s%d@example.com' % (prefix, i))
             add_user(group, u)
             add_user(self.everyone, u)
 
@@ -221,9 +222,10 @@ class AccessTest(SyncingTestCase):
         self._load_owned_models(self.restricted_group_a)
         self._load_owned_models(self.restricted_group_b)
 
-        User.objects.create_user('nogroupuser', 'nogroup@example.com', 'test')
-        self.superuser = User.objects.create_user(
-            'superuser', 'super@example.com', 'test')
+        User.objects.create(
+            username='nogroupuser', email='nogroup@example.com')
+        self.superuser = User.objects.create(
+            username='superuser', email='super@example.com')
         self.superuser.is_superuser = True
         self.superuser.save()
 
@@ -241,8 +243,8 @@ class AccessTest(SyncingTestCase):
         self.assertEqual(parents[0].name, 'the cabal parent record')
 
     def test_can_access_owned_records_if_not_in_a_group(self):
-        u = User.objects.create_user(
-            'groupless', 'groupless@example.com', 'nogroup')
+        u = User.objects.create(
+            username='groupless', email='groupless@example.com')
         m = AccessRestrictedModel(name='a record', owner=u)
         m.save()
 
@@ -298,8 +300,9 @@ class AccessGroupCapabilitiesTest(SyncingTestCase):
 
     def _load_users(self, prefix, group):
         for i in range(3):
-            u = User.objects.create_user(
-                '%s%d' % (prefix, i), '%s%d@example.com' % (prefix, i), prefix)
+            u = User.objects.create(
+                username='%s%d' % (prefix, i),
+                email='%s%d@example.com' % (prefix, i))
             add_user(group, u)
             add_user(self.everyone, u)
 
@@ -344,13 +347,14 @@ class AccessGroupCapabilitiesTest(SyncingTestCase):
         self.supergroup = self.group_model.objects.create(name='supergroup', supergroup=True)
         add_user(self.supergroup, _create_user())
 
-        su = User.objects.create_user(
-                'supergroupuser', 'supergroup@example.com', 'test')
+        su = User.objects.create(
+                username='supergroupuser', email='supergroup@example.com')
         add_user(self.supergroup, su)
 
-        User.objects.create_user('nogroupuser', 'nogroup@example.com', 'test')
-        self.superuser = User.objects.create_user(
-            'superuser', 'super@example.com', 'test')
+        User.objects.create(
+            username='nogroupuser', email='nogroup@example.com')
+        self.superuser = User.objects.create(
+            username='superuser', email='super@example.com')
         self.superuser.is_superuser = True
         self.superuser.save()
 
@@ -1312,6 +1316,6 @@ counter = itertools.count()
 
 def _create_user():
     random_string = 'asdfg%d' % counter.next()
-    user = User.objects.create_user(
-        random_string, '%s@example.com' % random_string)
+    user = User.objects.create(
+        username=random_string, email='%s@example.com' % random_string)
     return user
