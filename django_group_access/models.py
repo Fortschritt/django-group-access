@@ -7,6 +7,11 @@ from django.db.models.signals import post_save
 from django_group_access import middleware, registration
 
 
+def get_group_model():
+    app, model_label = settings.DGA_GROUP_MODEL.split('.')
+    return models.get_model(app, model_label)
+
+
 class AccessManagerMixin:
     """
     Provides access control methods for the Manager class.
@@ -44,8 +49,7 @@ class QuerySetMixin:
         matching available records. If we get here and the user is not
         authenticated, DGA_UNSHARED_RECORDS_ARE_PUBLIC must be True.
         """
-        app, model_label = settings.DGA_GROUP_MODEL.split('.')
-        group_model = models.get_model(app, model_label)
+        group_model = get_group_model()
         group_dict = {}
 
         if hasattr(group_model, 'user_set'):
@@ -177,7 +181,10 @@ def process_auto_share_groups(sender, instance, created, **kwargs):
     Automatically shares a record with the auto_share_groups
     on the groups the owner is a member of.
     """
-    if created and hasattr(instance, 'owner'):
+    group_model = get_group_model()
+
+    if (created and hasattr(instance, 'owner') and
+        hasattr(group_model, 'auto_share_groups')):
         try:
             owner = instance.owner
             if owner is None:
@@ -195,7 +202,11 @@ def populate_sharing(sender, instance, created, **kwargs):
     they are added to the 'can_share_with' property of the
     other groups.
     """
-    for group in AccessGroup.objects.all():
+    group_model = get_group_model()
+    if not hasattr(group_model, 'can_share_with'):
+        return
+
+    for group in group_model.objects.all():
         if instance.can_be_shared_with:
             group.can_share_with.add(instance)
         elif instance in group.can_share_with.all():
@@ -203,4 +214,4 @@ def populate_sharing(sender, instance, created, **kwargs):
     instance.can_share_with.add(instance)
 
 
-post_save.connect(populate_sharing, AccessGroup)
+post_save.connect(populate_sharing, get_group_model())

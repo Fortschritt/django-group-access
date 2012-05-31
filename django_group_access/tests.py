@@ -13,6 +13,8 @@ from django.contrib.auth.models import AnonymousUser, User
 
 from django_group_access import middleware, wrap_getitem
 from django_group_access import registration
+from django_group_access.models import (
+    process_auto_share_groups, populate_sharing)
 from django_group_access.sandbox.models import (
     AccessRestrictedModel,
     AccessRestrictedParent,
@@ -49,6 +51,30 @@ def add_user(group, user):
         group.members.add(user)
     if hasattr(group, 'user_set'):
         group.user_set.add(user)
+
+
+class SignalTests(TestCase):
+    @unittest.skipIf(
+        hasattr(get_group_model(), 'auto_share_groups'),
+        'Group model does not have auto sharing capabilities.')
+    def test_process_auto_share_groups_skips_if_not_applicable(self):
+        """
+        Running the process_auto_share_groups function with a
+        group model that does not support it does not give
+        any errors.
+        """
+        process_auto_share_groups(None, None, None)
+
+    @unittest.skipIf(
+        hasattr(get_group_model(), 'can_share_with'),
+        'Group model does not have sharing permission capabilities.')
+    def test_populate_sharing_skips_if_not_applicable(self):
+        """
+        Running the populate_sharing function with a
+        group model that does not support it does not give
+        any errors.
+        """
+        populate_sharing(None, None, None)
 
 
 class SyncingTestCase(TestCase):

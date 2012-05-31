@@ -15,9 +15,9 @@ bin/activate:
 	@echo ">>> Creating virtualenv..."
 	virtualenv $(VIRTUALENV)
 
-requirements: bin/activate
+requirements-test: bin/activate
 	@echo ">>> Installing requirements..."
-	$(ACTIVATE) && pip install -r requirements.txt
+	$(ACTIVATE) && pip install -r requirements.test.txt
 
 requirements-14:
 	@echo ">>> Installing requirements for Django 1.4..."
@@ -27,7 +27,7 @@ requirements-13:
 	@echo ">>> Installing requirements for Django 1.3..."
 	$(ACTIVATE) && pip install -r requirements.django1.3.txt
 
-env: bin/activate requirements
+env: bin/activate requirements-test
 	@echo ">>> Test environment set up..."
 
 clean-env:
