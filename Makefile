@@ -4,6 +4,8 @@ VIRTUALENV=dga-env
 
 ACTIVATE=. dga-env/bin/activate
 
+MAKE=make
+
 DJANGO_13_PROJECT=cd test_projects/dga_django_1_3
 DJANGO_14_PROJECT=cd test_projects/dga_django_1_4
 
@@ -35,9 +37,9 @@ clean-env:
 
 # Documentation
 
-docs:
+htmldocs:
 	@echo ">>> Creating documentation..."
-	$(ACTIVATE) && cd docs && make html
+	$(ACTIVATE) && $(MAKE) -C docs html
 
 clean-docs:
 	cd docs && make clean

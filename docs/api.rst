@@ -5,7 +5,7 @@ Manager
 -------
 
 ``accessible_by_user``
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. method:: Manager.accessible_by_user(self, user)
 
@@ -16,7 +16,7 @@ Queryset
 --------
 
 ``accessible_by_user``
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. method:: QuerySet.accessible_by_user(self, user)
 
