@@ -14,7 +14,7 @@ from django.contrib.auth.models import AnonymousUser, User
 from django_group_access import middleware, wrap_getitem
 from django_group_access import registration
 from django_group_access.models import (
-    process_auto_share_groups, populate_sharing)
+    get_group_model, process_auto_share_groups, populate_sharing)
 from django_group_access.sandbox.models import (
     AccessRestrictedModel,
     AccessRestrictedParent,
@@ -26,11 +26,6 @@ from django_group_access.sandbox.models import (
     UniqueModel,
     UniqueForm,
 )
-
-
-def get_group_model():
-    app, label = settings.DGA_GROUP_MODEL.split('.')
-    return models.get_model(app, label)
 
 
 def has_field(model, field):

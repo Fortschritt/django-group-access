@@ -46,13 +46,13 @@ clean-docs:
 
 test-14: env requirements-14
 	@echo ">>> Testing with django_group_access.models.AccessGroup..."
-	$(ACTIVATE) && $(DJANGO_14_PROJECT) && $(DJANGO_MANAGE) test django_group_access --settings=settings_dga_groups
+	$(ACTIVATE) && $(DJANGO_14_PROJECT) && $(DJANGO_MANAGE) test django_group_access
 	@echo ">>> Testing with django.contrib.auth.models.Group..."
 	$(ACTIVATE) && $(DJANGO_14_PROJECT) && $(DJANGO_MANAGE) test django_group_access --settings=settings_auth_groups
 
 test-13: env requirements-13
 	@echo ">>> Testing with django_group_access.models.AccessGroup..."
-	$(ACTIVATE) && $(DJANGO_13_PROJECT) && $(DJANGO_MANAGE) test django_group_access --settings=settings_dga_groups
+	$(ACTIVATE) && $(DJANGO_13_PROJECT) && $(DJANGO_MANAGE) test django_group_access
 	@echo ">>> Testing with django.contrib.auth.models.Group..."
 	$(ACTIVATE) && $(DJANGO_13_PROJECT) && $(DJANGO_MANAGE) test django_group_access --settings=settings_auth_groups
 

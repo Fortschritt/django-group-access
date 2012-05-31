@@ -8,6 +8,9 @@ from django_group_access import middleware, registration
 
 
 def get_group_model():
+    if not hasattr(settings, 'DGA_GROUP_MODEL'):
+        return AccessGroup
+
     app, model_label = settings.DGA_GROUP_MODEL.split('.')
     return models.get_model(app, model_label)
 

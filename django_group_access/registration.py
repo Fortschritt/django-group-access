@@ -23,7 +23,7 @@ def register(
     Register a model with the access control code.
     """
     from django_group_access.models import (
-        AccessGroup, process_auto_share_groups)
+        get_group_model, process_auto_share_groups)
 
     if is_registered_model(model):
         return
@@ -51,8 +51,7 @@ def register(
         # have access to the related records, so no need to
         # add the attribute to the class.
         return
-    app, model_label = settings.DGA_GROUP_MODEL.split('.')
     ManyToManyField(
-        get_model(app, model_label), blank=True, null=True).contribute_to_class(
+        get_group_model(), blank=True, null=True).contribute_to_class(
             model, 'access_groups')
     post_save.connect(process_auto_share_groups, model)
