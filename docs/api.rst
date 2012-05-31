@@ -47,6 +47,6 @@ Registers a model class with django-group-access.
 
 ``unrestricted_manager``: Attribute name to use for a manager that will return unrestricted querysets by default (most useful if you're using the middleware that automcatically applies access control based on the currently logged in user).
 
-``auto_filter``: Determines if this model class is included in the automatica filtering provided by the middleware.
+``auto_filter``: Determines if this model class is included in the automatic filtering provided by the middleware.
 
 ``owner``: Determines if an owner foreignkey to the Django auth User class is added to the model.
