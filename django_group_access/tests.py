@@ -53,7 +53,11 @@ def add_user(group, user):
         group.user_set.add(user)
 
 
-class SignalTests(TestCase):
+class UnsupportedSignalTests(TestCase):
+    """
+    Test that the functions used in the sharing signals don't crash
+    when the group model doesn't support the functionality.
+    """
     @unittest.skipIf(
         hasattr(get_group_model(), 'auto_share_groups'),
         'Group model does not have auto sharing capabilities.')
@@ -78,6 +82,9 @@ class SignalTests(TestCase):
 
 
 class SyncingTestCase(TestCase):
+    """
+    Makes sure the sandbox app is ready to use.
+    """
     apps = ('django_group_access.sandbox',)
 
     def _pre_setup(self):
@@ -201,11 +208,12 @@ class AccessRelationTests(SyncingTestCase):
 
 
 class AccessTest(SyncingTestCase):
+    """
+    Test that access restrictions are applied.
+    """
     everyone = None
-    public_group = None
     restricted_group_a = None
     restricted_group_b = None
-    supergroup = None
 
     def _load_users(self, prefix, group):
         for i in range(3):
@@ -318,6 +326,10 @@ class AccessTest(SyncingTestCase):
 
 
 class AccessGroupCapabilitiesTest(SyncingTestCase):
+    """
+    Test for the automatic sharing capabilities that
+    django_group_access.models.AccessGroup provides.
+    """
     everyone = None
     public_group = None
     restricted_group_a = None
