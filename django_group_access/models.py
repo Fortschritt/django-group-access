@@ -3,16 +3,33 @@ from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
-
+from django.db.models.fields import FieldDoesNotExist
 from django_group_access import middleware, registration
 
 
 def get_group_model():
+    """
+    Returns the model class used for access groups, specified
+    by the DGA_GROUP_MODEL setting.
+    Defaults to AccessGroup
+    """
     if not hasattr(settings, 'DGA_GROUP_MODEL'):
         return AccessGroup
 
     app, model_label = settings.DGA_GROUP_MODEL.split('.')
     return models.get_model(app, model_label)
+
+
+def model_has_field(model, field):
+    """
+    Return bool showing if the model class has a particular
+    named field or not.
+    """
+    try:
+        model._meta.get_field(field)
+        return True
+    except FieldDoesNotExist:
+        return False
 
 
 class AccessManagerMixin:
@@ -66,11 +83,7 @@ class QuerySetMixin:
             if user.is_superuser:
                 return models.Q()
 
-            has_supergroup = bool(
-                [f for f in group_model._meta.fields
-                if f.name == 'supergroup'])
-
-            if has_supergroup:
+            if model_has_field(group_model, 'supergroup'):
                 if group_model.objects.filter(
                     **group_dict).filter(supergroup=True).count():
                     return models.Q()

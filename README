@@ -1,0 +1,8 @@
+django-group-access provides basic row-level access control
+and is designed to be easy to configure and integrate into
+your existing code.
+
+To build full documentation, run:
+
+  make htmldocs
+

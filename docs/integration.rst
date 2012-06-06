@@ -130,3 +130,33 @@ models will have their querysets filtered for the currently logged in user
 automatically.
 
 See :ref:`install-middleware` for how to install the automatic filtering middleware.
+
+.. _group-model-attributes:
+
+Group model attributes
+----------------------
+
+``Members`` or ``user_set``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To use a model as a group model, it must have either a ``members`` attribute
+as a ManyToManyField to ``django.contrib.auth.models.User`` or a reverse
+relationship to users called ``user_set``.
+
+
+``supergroup``
+~~~~~~~~~~~~~~
+
+**Optional**
+
+Boolean field. If a group's ``supergroup`` attribute is ``True``, members of that
+group can see all records no matter how the sharing is configured.
+
+
+``auto_share_groups``
+~~~~~~~~~~~~~~~~~~~~~
+
+**Optional**
+
+ManyToManyField to the group model. Records created with an owner of the group
+will automatically be shared with the groups in this list.

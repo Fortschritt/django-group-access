@@ -36,7 +36,7 @@ Example::
 
   DGA_GROUP_MODEL = 'auth.group'
 
-See the group api documentation if you want to implement your own group model.
+See the :ref:`group-model-attributes` documentation if you want to implement your own group model.
 
 The most common setting for this is ``auth.group`` which will use the django authentication group model.
 
