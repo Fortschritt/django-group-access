@@ -1,7 +1,8 @@
 # Copyright 2012 Canonical Ltd.
-from django.db.models import ForeignKey, ManyToManyField, manager
+from django.db.models import ForeignKey, ManyToManyField, manager, get_model
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
+from django.conf import settings
 
 _registered_models = set([])
 _auto_filter_models = set([])
@@ -22,7 +23,7 @@ def register(
     Register a model with the access control code.
     """
     from django_group_access.models import (
-        AccessGroup, process_auto_share_groups)
+        get_group_model, process_auto_share_groups)
 
     if is_registered_model(model):
         return
@@ -51,6 +52,6 @@ def register(
         # add the attribute to the class.
         return
     ManyToManyField(
-        AccessGroup, blank=True, null=True).contribute_to_class(
+        get_group_model(), blank=True, null=True).contribute_to_class(
             model, 'access_groups')
     post_save.connect(process_auto_share_groups, model)

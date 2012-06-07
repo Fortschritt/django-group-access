@@ -3,8 +3,33 @@ from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
-
+from django.db.models.fields import FieldDoesNotExist
 from django_group_access import middleware, registration
+
+
+def get_group_model():
+    """
+    Returns the model class used for access groups, specified
+    by the DGA_GROUP_MODEL setting.
+    Defaults to AccessGroup
+    """
+    if not hasattr(settings, 'DGA_GROUP_MODEL'):
+        return AccessGroup
+
+    app, model_label = settings.DGA_GROUP_MODEL.split('.')
+    return models.get_model(app, model_label)
+
+
+def model_has_field(model, field):
+    """
+    Return bool showing if the model class has a particular
+    named field or not.
+    """
+    try:
+        model._meta.get_field(field)
+        return True
+    except FieldDoesNotExist:
+        return False
 
 
 class AccessManagerMixin:
@@ -44,14 +69,24 @@ class QuerySetMixin:
         matching available records. If we get here and the user is not
         authenticated, DGA_UNSHARED_RECORDS_ARE_PUBLIC must be True.
         """
+        group_model = get_group_model()
+        group_dict = {}
+
+        if hasattr(group_model, 'user_set'):
+            group_dict['user'] = user
+
+        if hasattr(group_model, 'members'):
+            group_dict['members'] = user
+
         if user.is_authenticated():
 
             if user.is_superuser:
                 return models.Q()
 
-            if AccessGroup.objects.filter(
-                members=user, supergroup=True).count():
-                return models.Q()
+            if model_has_field(group_model, 'supergroup'):
+                if group_model.objects.filter(
+                    **group_dict).filter(supergroup=True).count():
+                    return models.Q()
 
         if hasattr(self.model, 'access_control_relation'):
             # access control is managed by a related record
@@ -65,7 +100,7 @@ class QuerySetMixin:
                 # in access groups the user is in
                 rules = rules | models.Q(
                     **{'%s__access_groups__in' % access_relation:
-                        AccessGroup.objects.filter(members=user)})
+                        group_model.objects.filter(**group_dict)})
                 # or owned by user
                 rules = rules | models.Q(
                     **{'%s__owner' % access_relation: user})
@@ -81,7 +116,7 @@ class QuerySetMixin:
         else:
             # access controls are directly on the record
             if user.is_authenticated():
-                user_groups = AccessGroup.objects.filter(members=user)
+                user_groups = group_model.objects.filter(**group_dict)
                 # either the record is in the user's access groups, or
                 # directly owned by the user
                 rules = models.Q(access_groups__in=user_groups)
@@ -162,7 +197,10 @@ def process_auto_share_groups(sender, instance, created, **kwargs):
     Automatically shares a record with the auto_share_groups
     on the groups the owner is a member of.
     """
-    if created and hasattr(instance, 'owner'):
+    group_model = get_group_model()
+
+    if (created and hasattr(instance, 'owner') and
+        hasattr(group_model, 'auto_share_groups')):
         try:
             owner = instance.owner
             if owner is None:
@@ -180,7 +218,11 @@ def populate_sharing(sender, instance, created, **kwargs):
     they are added to the 'can_share_with' property of the
     other groups.
     """
-    for group in AccessGroup.objects.all():
+    group_model = get_group_model()
+    if not hasattr(group_model, 'can_share_with'):
+        return
+
+    for group in group_model.objects.all():
         if instance.can_be_shared_with:
             group.can_share_with.add(instance)
         elif instance in group.can_share_with.all():
@@ -188,4 +230,4 @@ def populate_sharing(sender, instance, created, **kwargs):
     instance.can_share_with.add(instance)
 
 
-post_save.connect(populate_sharing, AccessGroup)
+post_save.connect(populate_sharing, get_group_model())
