@@ -1350,6 +1350,24 @@ class UniqueContraintsInModelForms(SyncingTestCase):
             'were used to check uniqueness.')
 
 
+class SubqueryTest(SyncingTestCase):
+    def test_querysets_used_in_subqueries(self):
+        """
+        An access restricted queryset used inside another queryset
+        should have the access controls applied.
+        """
+        user = User.objects.create(username='user')
+        group = self.group_model.objects.create(name='group')
+        project = Project.objects.create(name='project')
+        project.access_groups.add(group)
+        subqueryset = Project.objects.all().accessible_by_user(user)
+
+        # there should be no access groups associated with the list
+        # of projects in the subqueryset
+        groups = self.group_model.objects.filter(project__in=subqueryset)
+        self.assertEqual(set(groups), set([]))
+
+
 counter = itertools.count()
 
 

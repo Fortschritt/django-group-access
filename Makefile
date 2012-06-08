@@ -1,7 +1,7 @@
 # Copyright 2010-2012 Canonical Ltd.
 
 VIRTUALENV=dga-env
-
+PIP_INSTALL=pip install --download-cache=dga-env/
 ACTIVATE=. dga-env/bin/activate
 
 MAKE=make
@@ -19,15 +19,15 @@ bin/activate:
 
 requirements-test: bin/activate
 	@echo ">>> Installing requirements..."
-	$(ACTIVATE) && pip install -r requirements.test.txt
+	$(ACTIVATE) && $(PIP_INSTALL) -r requirements.test.txt
 
 requirements-14:
 	@echo ">>> Installing requirements for Django 1.4..."
-	$(ACTIVATE) && pip install -r requirements.django1.4.txt
+	$(ACTIVATE) && $(PIP_INSTALL) -r requirements.django1.4.txt
 
 requirements-13:
 	@echo ">>> Installing requirements for Django 1.3..."
-	$(ACTIVATE) && pip install -r requirements.django1.3.txt
+	$(ACTIVATE) && $(PIP_INSTALL) -r requirements.django1.3.txt
 
 env: bin/activate requirements-test
 	@echo ">>> Test environment set up..."
@@ -72,7 +72,6 @@ pylint:
 clean:
 	find . -name '*~' -delete
 	find . -name '*.pyc' -delete
-	bzr clean-tree
 
 clean-all: clean clean-env clean-docs
 	@echo ">>> All cleaned up!"

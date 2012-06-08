@@ -40,8 +40,16 @@ def wrap_db_method(func, used_in_unique_check=False):
             apply_access_control = not bool(
                 [t for t in traceback.extract_stack()
                 if t[2] == '_perform_unique_checks'])
+
+        # if this queryset has already been filtered for access
+        # control, let's not do it again.
+        if apply_access_control:
+            if getattr(self, '_access_has_been_filtered', False):
+                apply_access_control = False
+
         if apply_access_control:
             queryset = self._filter_for_access_control()
+            queryset._access_has_been_filtered = True
         else:
             queryset = self
         return func(queryset, *args, **kwargs)
@@ -54,6 +62,7 @@ query.QuerySet.iterator = wrap_db_method(query.QuerySet.iterator)
 query.QuerySet.count = wrap_db_method(query.QuerySet.count)
 query.QuerySet.in_bulk = wrap_db_method(query.QuerySet.in_bulk)
 query.QuerySet.__getitem__ = wrap_db_method(query.QuerySet.__getitem__)
+query.QuerySet._as_sql = wrap_db_method(query.QuerySet._as_sql)
 # exists is used to do uniqueness checks when validating models.
 query.QuerySet.exists = wrap_db_method(
     query.QuerySet.exists, used_in_unique_check=True)
