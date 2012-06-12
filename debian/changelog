@@ -1,8 +1,7 @@
 django-group-access (1.1.7) precise; urgency=low
 
   * Makefile will cache downloaded packages for faster re-testing
-  * Fixed bug where access controlled querysets were not access
-    controlled when used as subquery in a non access controlled queryset
+  * Fixed bug where access controlled querysets were not access controlled when used as subquery in a non access controlled queryset
 
  -- Mike Heald <mike.heald@canonical.com>  Fri, 8 June 2012 17:00:00 +0100
 
