@@ -51,9 +51,9 @@ test-all: test-13 test-14
 
 test:
 	@echo ">>> Testing with django_group_access.models.AccessGroup..."
-	$(ACTIVATE) && cd test_projects/dga_django_$(DJANGO_VERSION) && $(DJANGO_MANAGE) test django_group_access
+	cd test_projects/dga_django_$(DJANGO_VERSION) && $(DJANGO_MANAGE) test django_group_access
 	@echo ">>> Testing with django.contrib.auth.models.Group..."
-	$(ACTIVATE) && cd test_projects/dga_django_$(DJANGO_VERSION) && $(DJANGO_MANAGE) test django_group_access --settings=settings_auth_groups
+	cd test_projects/dga_django_$(DJANGO_VERSION) && $(DJANGO_MANAGE) test django_group_access --settings=settings_auth_groups
 
 pep8:
 	$(CHANGED) $(PEP8)
