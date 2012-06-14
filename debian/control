@@ -3,7 +3,7 @@ Section: python
 Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Mike Heald <mike.heald@canonical.com>
-Build-Depends: debhelper, python, python-setuptools, python-virtualenv
+Build-Depends: debhelper, python, python-setuptools, python-django
 Standards-Version: 3.9.3
 
 Package: python-django-group-access
