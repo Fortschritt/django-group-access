@@ -50,3 +50,5 @@ Registers a model class with django-group-access.
 ``auto_filter``: Determines if this model class is included in the automatic filtering provided by the middleware.
 
 ``owner``: Determines if an owner foreignkey to the Django auth User class is added to the model.
+
+``superuser_checks``: An array of functions to determin if a user should have superuser access to the model records (i.e. unrestricted access)

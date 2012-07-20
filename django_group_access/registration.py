@@ -1,11 +1,19 @@
 # Copyright 2012 Canonical Ltd.
-from django.db.models import ForeignKey, ManyToManyField, manager, get_model
+from django.db.models import ForeignKey, ManyToManyField, manager
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
-from django.conf import settings
 
 _registered_models = set([])
 _auto_filter_models = set([])
+_superuser_checks = {}
+
+
+def _is_superuser(user):
+    return user.is_superuser
+
+
+def get_superuser_checks(model):
+    return _superuser_checks[model]
 
 
 def is_registered_model(model):
@@ -18,7 +26,7 @@ def is_auto_filtered(model):
 
 def register(
     model, control_relation=False, unrestricted_manager=False,
-    auto_filter=True, owner=True):
+    auto_filter=True, owner=True, superuser_checks=[]):
     """
     Register a model with the access control code.
     """
@@ -28,6 +36,8 @@ def register(
     if is_registered_model(model):
         return
     _registered_models.add(model)
+
+    _superuser_checks[model] = [_is_superuser] + superuser_checks
 
     if auto_filter:
         _auto_filter_models.add(model)

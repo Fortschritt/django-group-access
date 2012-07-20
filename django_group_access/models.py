@@ -63,6 +63,22 @@ class QuerySetMixin:
     def get_for_owner(self, user):
         return self.filter(owner=user)
 
+    def _resolve_model_from_relation(self, model, relation):
+        """
+        Extracts the model from related descriptors.
+        """
+        descriptor = getattr(model, relation, None)
+        if descriptor is None:
+            descriptor = getattr(model, relation + '_set', None)
+
+        resolved = None
+
+        if hasattr(descriptor, 'related'):
+            resolved = getattr(descriptor, 'related').model
+        elif hasattr(descriptor, 'field'):
+            resolved = getattr(descriptor, 'field').rel.to
+        return resolved
+
     def _get_accessible_by_user_filter_rules(self, user):
         """
         Implements the access rules. Must return a set of Q conditions
@@ -79,9 +95,17 @@ class QuerySetMixin:
             group_dict['members'] = user
 
         if user.is_authenticated():
+            model = self.model
+            if hasattr(self.model, 'access_control_relation'):
+                # superuser checks are handled by the related model
+                relation = getattr(self.model, 'access_control_relation')
 
-            if user.is_superuser:
-                return models.Q()
+                for step in relation.split('__'):
+                    model = self._resolve_model_from_relation(model, step)
+
+            for func in registration.get_superuser_checks(model):
+                if func(user):
+                    return models.Q()
 
             if model_has_field(group_model, 'supergroup'):
                 if group_model.objects.filter(
