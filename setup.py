@@ -26,5 +26,5 @@ setup(
     zip_safe=True,
     packages=['django_group_access', 'django_group_access.migrations'],
     # dependencies
-    install_requires=['django >=1.2'],
+    install_requires=['django >=1.3'],
 )
