@@ -103,7 +103,7 @@ class QuerySetMixin:
                 for step in relation.split('__'):
                     model = self._resolve_model_from_relation(model, step)
 
-            for func in registration.get_superuser_checks(model):
+            for func in registration.get_unrestricted_access_hooks(model):
                 if func(user):
                     return models.Q()
 

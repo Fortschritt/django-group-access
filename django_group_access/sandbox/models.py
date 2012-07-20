@@ -82,7 +82,7 @@ def username_is_mike(user):
 
 
 # allows us to test that the additional superuser checks are called
-register(AccessRestrictedModel, superuser_checks=[username_is_mike])
+register(AccessRestrictedModel, unrestricted_access_hooks=[username_is_mike])
 register(
     AccessRestrictedParent, control_relation='accessrestrictedmodel',
     owner=False)

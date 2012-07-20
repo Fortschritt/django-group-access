@@ -336,7 +336,7 @@ class AccessTest(SyncingTestCase):
             self.superuser)
         self.assertEqual(available.count(), 3)
 
-    def test_superuser_checks_are_called(self):
+    def test_unrestricted_access_hooks_are_called(self):
         """
         A model can be registered with an array of functions that
         check if the resultsets should return all data.

@@ -5,15 +5,15 @@ from django.db.models.signals import post_save
 
 _registered_models = set([])
 _auto_filter_models = set([])
-_superuser_checks = {}
+_unrestricted_access_hooks = {}
 
 
 def _is_superuser(user):
     return user.is_superuser
 
 
-def get_superuser_checks(model):
-    return _superuser_checks[model]
+def get_unrestricted_access_hooks(model):
+    return _unrestricted_access_hooks[model]
 
 
 def is_registered_model(model):
@@ -26,7 +26,7 @@ def is_auto_filtered(model):
 
 def register(
     model, control_relation=False, unrestricted_manager=False,
-    auto_filter=True, owner=True, superuser_checks=[]):
+    auto_filter=True, owner=True, unrestricted_access_hooks=[]):
     """
     Register a model with the access control code.
     """
@@ -37,7 +37,7 @@ def register(
         return
     _registered_models.add(model)
 
-    _superuser_checks[model] = [_is_superuser] + superuser_checks
+    _unrestricted_access_hooks[model] = [_is_superuser] + unrestricted_access_hooks
 
     if auto_filter:
         _auto_filter_models.add(model)
