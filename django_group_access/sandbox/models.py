@@ -77,7 +77,12 @@ class UniqueForm(forms.ModelForm):
         model = UniqueModel
 
 
-register(AccessRestrictedModel)
+def username_is_mike(user):
+    return user.username == 'mike'
+
+
+# allows us to test that the additional superuser checks are called
+register(AccessRestrictedModel, unrestricted_access_hooks=[username_is_mike])
 register(
     AccessRestrictedParent, control_relation='accessrestrictedmodel',
     owner=False)

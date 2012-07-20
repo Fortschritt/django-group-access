@@ -65,6 +65,34 @@ Example::
   registration.register(House, control_relation='room')
 
 
+Granting unrestricted status based on custom conditions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to allow a user unrestricted access to a model's
+records based on something other than ``is_superuser`` (for
+example, you may have a Hardware model, and a user attribute
+called HardwareAdmin) you can pass an array of functions in the
+parameter ``unrestricted_access_hooks``.
+
+The functions will be passed one argument, the user. They must
+return ``True`` or ``False``.
+
+Example::
+
+  def mike_is_all_powerful(user):
+      return user.username == 'mike'
+  
+  registration.register(MyModel, unrestricted_access_hooks=[mike_is_all_powerful])
+
+
+A silly example, but if you wanted to grant the user with the username 'mike'
+unrestricted access to the MyModel records, that's how you'd do it.
+
+Note: If you register a model with a ``control_relation``, the
+unrestricted_access_hooks will be ignored, and the unrestricted_access_hooks
+from the control relation's model will be used.
+
+
 Sharing records
 ---------------
 

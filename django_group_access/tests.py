@@ -269,6 +269,8 @@ class AccessTest(SyncingTestCase):
             username='superuser', email='super@example.com')
         self.superuser.is_superuser = True
         self.superuser.save()
+        self.mike = User.objects.create(
+            username='mike', email='mike@example.com')
 
     def test_get_own_resources(self):
         """
@@ -332,6 +334,27 @@ class AccessTest(SyncingTestCase):
         self.assertEqual(available.count(), 12)
         available = AccessRestrictedParent.objects.accessible_by_user(
             self.superuser)
+        self.assertEqual(available.count(), 3)
+
+    def test_unrestricted_access_hooks_are_called(self):
+        """
+        A model can be registered with an array of functions that
+        check if the resultsets should return all data.
+        AccessRestrictedModel has been registered with a function
+        that returns True if the user's username is 'mike'
+        """
+        available = AccessRestrictedModel.objects.accessible_by_user(
+            self.mike)
+        self.assertEqual(available.count(), 12)
+
+    def test_unrestricted_access_hooks_for_control_relation(self):
+        """
+        Models registered with a control_relation should use the
+        unrestricted_access_hooks from the model the control_relation
+        points at.
+        """
+        available = AccessRestrictedParent.objects.accessible_by_user(
+            self.mike)
         self.assertEqual(available.count(), 3)
 
     def test_can_see_records_with_no_controlling_access_records(self):
