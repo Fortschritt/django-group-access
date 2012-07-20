@@ -346,6 +346,13 @@ class AccessTest(SyncingTestCase):
         available = AccessRestrictedModel.objects.accessible_by_user(
             self.mike)
         self.assertEqual(available.count(), 12)
+
+    def test_unrestricted_access_hooks_for_control_relation(self):
+        """
+        Models registered with a control_relation should use the
+        unrestricted_access_hooks from the model the control_relation
+        points at.
+        """
         available = AccessRestrictedParent.objects.accessible_by_user(
             self.mike)
         self.assertEqual(available.count(), 3)

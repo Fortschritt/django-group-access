@@ -65,7 +65,7 @@ class QuerySetMixin:
 
     def _resolve_model_from_relation(self, model, relation):
         """
-        Extracts the model from related descriptors.
+        Resolves an orm style relation to the model class it points at.
         """
         descriptor = getattr(model, relation, None)
         if descriptor is None:

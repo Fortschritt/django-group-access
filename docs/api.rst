@@ -51,4 +51,4 @@ Registers a model class with django-group-access.
 
 ``owner``: Determines if an owner foreignkey to the Django auth User class is added to the model.
 
-``unrestricted_access_hooks``: An array of functions to determin if a user should have unrestricted access to the model records (i.e. unrestricted access)
+``unrestricted_access_hooks``: An array of functions to determine if a user should have unrestricted access to the model records (i.e. unrestricted access)
