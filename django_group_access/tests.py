@@ -18,6 +18,7 @@ from django_group_access.models import (
     model_has_field)
 from django_group_access.sandbox.models import (
     AccessRestrictedModel,
+    AccessRestrictedProxy,
     AccessRestrictedParent,
     Build,
     Machine,
@@ -369,6 +370,26 @@ class AccessTest(SyncingTestCase):
         available = AccessRestrictedParent.objects.accessible_by_user(user)
         self.assertEqual(available.count(), 1)
         self.assertEqual(available[0], record)
+
+    def test_proxy_models_use_concrete_model_rules(self):
+        """
+        If a model is a proxy for another model, the original model's
+        access control rules are used.
+        """
+        group = self.group_model.objects.get(name='the cabal')
+        user = get_members(group)[0]
+        record = AccessRestrictedModel.objects.get(
+                    name='the stonecutters record 1')
+        record.owner = user
+        record.save()
+        available = AccessRestrictedProxy.objects.accessible_by_user(user)
+
+        self.assertEqual(available.count(), 5)
+        self.assertEqual(available[0].name, 'the cabal record 0')
+        self.assertEqual(available[1].name, 'the cabal record 1')
+        self.assertEqual(available[2].name, 'the cabal record 2')
+        self.assertEqual(available[3].name, 'the cabal record extra')
+        self.assertEqual(available[4].name, 'the stonecutters record 1')
 
 
 class AccessGroupCapabilitiesTest(SyncingTestCase):

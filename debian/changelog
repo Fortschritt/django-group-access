@@ -1,3 +1,10 @@
+django-group-access (1.1.9) precise; urgency=low
+
+  * Support for proxy models
+  * Allows project to hide DGA fields from django-south
+
+ -- Mike Heald <mike.heald@canonical.com>  Fri, 20 Jul 2012 10:12:00 +0100
+
 django-group-access (1.1.8) precise; urgency=low
 
   * Allowed registration of alternative superuser checks

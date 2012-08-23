@@ -1,5 +1,5 @@
 # Copyright 2012 Canonical Ltd.
-__all__ = ['register', ]
+__all__ = ['register', 'register_proxy']
 
 import traceback
 
@@ -10,6 +10,7 @@ from django_group_access import registration
 from django_group_access.models import AccessManagerMixin, QuerySetMixin
 
 register = registration.register
+register_proxy = registration.register_proxy
 
 """
 Django creates managers in a whole bunch of places, sometimes

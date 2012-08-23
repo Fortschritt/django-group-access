@@ -1,10 +1,35 @@
 # Copyright 2012 Canonical Ltd.
 from django.db import models
+from django.db.models import ForeignKey, ManyToManyField
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.db.models.fields import FieldDoesNotExist
 from django_group_access import middleware, registration
+
+
+if 'south' in settings.INSTALLED_APPS:
+    if getattr(settings, 'DGA_SOUTH_IGNORE', False):
+        from south.modelsinspector import add_ignored_fields
+        add_ignored_fields(["^django_group_access"])
+    else:
+        from south.modelsinspector import add_introspection_rules
+        add_introspection_rules([], ["^django_group_access\.models\.DjangoGroupAccessForeignKey"])
+        add_introspection_rules([], ["^django_group_access\.models\.DjangoGroupAccessManyToManyField"])
+
+
+class DjangoGroupAccessForeignKey(ForeignKey):
+    """
+    Exists purely to allow django-south to detect these fields.
+    """
+    pass
+
+
+class DjangoGroupAccessManyToManyField(ManyToManyField):
+    """
+    Exists purely to allow django-south to detect these fields.
+    """
+    pass
 
 
 def get_group_model():

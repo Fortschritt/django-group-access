@@ -1,7 +1,7 @@
 # Copyright 2012 Canonical Ltd.
 from django import forms
 from django.db import models
-from django_group_access import register
+from django_group_access import register, register_proxy
 
 
 class AccessRestrictedParent(models.Model):
@@ -23,6 +23,18 @@ class AccessRestrictedModel(models.Model):
 
     def __unicode__(self):
         return self.name
+
+
+class AccessRestrictedProxy(AccessRestrictedModel):
+
+    class Meta:
+        proxy = True
+
+
+class AccessRestrictedParentProxy(AccessRestrictedParent):
+
+    class Meta:
+        proxy = True
 
 
 class Machine(models.Model):
@@ -99,3 +111,7 @@ register(Machine)
 
 # to test unique constraints when using ModelForms and ownerless records
 register(UniqueModel, owner=False)
+
+# proxies
+register_proxy(AccessRestrictedProxy)
+register_proxy(AccessRestrictedParentProxy)
