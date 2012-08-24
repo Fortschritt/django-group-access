@@ -216,6 +216,23 @@ class AccessRelationTests(SyncingTestCase):
         self.assertEqual(records.count(), 1)
         self.assertEqual(records[0].name, 'blah44')
 
+    def test_not_visible_if_no_related_records(self):
+        """
+        A model with an access relation that has no records will not be shown.
+        if DGA_NO_RELATED_RECORD_VISIBILITY is False
+        """
+        old_setting = getattr(
+            settings, 'DGA_NO_RELATED_RECORD_VISIBILITY',
+            True)
+        settings.DGA_NO_RELATED_RECORD_VISIBILITY = False
+
+        AccessRestrictedParent.objects.create(name='blah44')
+        records = AccessRestrictedParent.objects.accessible_by_user(
+            self.user_without_access)
+        self.assertEqual(records.count(), 0)
+
+        settings.DGA_NO_RELATED_RECORD_VISIBILITY = old_setting
+
     def test_not_visible_if_all_related_records_are_hidden_from_user(self):
         """
         If all the related records are not available to the user, the parent

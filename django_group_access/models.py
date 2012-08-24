@@ -153,9 +153,10 @@ class QuerySetMixin:
                 # or owned by user
                 rules = rules | models.Q(
                     **{'%s__owner' % access_relation: user})
-            # related records do not exist
-            rules = rules | models.Q(
-                **{'%s__isnull' % access_relation: True})
+            if getattr(settings, 'DGA_NO_RELATED_RECORD_VISIBILITY', True):
+                # related records do not exist, so main records are visible
+                rules = rules | models.Q(
+                    **{'%s__isnull' % access_relation: True})
             # or related records not shared, and public mode is on
             if getattr(settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC', False):
                 rules = rules | models.Q(
