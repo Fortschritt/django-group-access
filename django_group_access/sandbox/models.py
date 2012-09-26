@@ -89,6 +89,21 @@ class UniqueForm(forms.ModelForm):
         model = UniqueModel
 
 
+class UnownedParent(models.Model):
+    name = models.CharField(max_length=64)
+
+    def __unicode__(self):
+        return self.name
+
+
+class UnownedChild(models.Model):
+    name = models.CharField(max_length=64)
+    parent = models.ForeignKey(UnownedParent)
+
+    def __unicode__(self):
+        return self.name
+
+
 def username_is_mike(user):
     return user.username == 'mike'
 
@@ -115,3 +130,8 @@ register(UniqueModel, owner=False)
 # proxies
 register_proxy(AccessRestrictedProxy)
 register_proxy(AccessRestrictedParentProxy)
+
+# test for control relations with child and parent models that do not have
+# an owner column at all
+register(UnownedParent, owner=False)
+register(UnownedChild, control_relation='parent', owner=False)

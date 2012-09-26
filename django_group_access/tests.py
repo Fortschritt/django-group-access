@@ -27,6 +27,8 @@ from django_group_access.sandbox.models import (
     Unrestricted,
     UniqueModel,
     UniqueForm,
+    UnownedParent,
+    UnownedChild
 )
 
 
@@ -256,6 +258,19 @@ class AccessRelationTests(SyncingTestCase):
         AccessRestrictedModel.objects.create(parent=parent, owner=user)
         records = AccessRestrictedParent.objects.accessible_by_user(user)
         self.assertEqual(set([parent]), set(records))
+
+    def test_access_checks_with_no_owners_at_all(self):
+        """
+        If child and parent models do not have the owner column at all,
+        the access controls are still applied.
+        """
+        parent = UnownedParent.objects.create(name='blah_parent')
+        UnownedChild.objects.create(name='child', parent=parent)
+        parent.access_groups.add(self.group)
+
+        records = UnownedChild.objects.accessible_by_user(
+            self.user_without_access)
+        self.assertEqual(set(records), set([]))
 
 
 class AccessTest(SyncingTestCase):

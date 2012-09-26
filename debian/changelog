@@ -1,3 +1,9 @@
+django-group-access (1.1.11) precise; urgency=low
+
+  * Support parent/child access control with no owner attributes
+
+ -- Mike Heald <mike.heald@canonical.com>  Wed, 26 Sep 2012 13:46:00 +0100
+
 django-group-access (1.1.10) precise; urgency=low
 
   * Support hiding records if they have no related records

@@ -104,6 +104,16 @@ class QuerySetMixin:
             resolved = getattr(descriptor, 'field').rel.to
         return resolved
 
+    def _get_control_relation_model(self):
+        """
+        Returns the Model that the control relation points at.
+        """
+        relation = getattr(self.model, 'access_control_relation')
+        model = self.model
+        for step in relation.split('__'):
+            model = self._resolve_model_from_relation(model, step)
+        return model
+
     def _get_accessible_by_user_filter_rules(self, user):
         """
         Implements the access rules. Must return a set of Q conditions
@@ -123,10 +133,7 @@ class QuerySetMixin:
             model = self.model
             if hasattr(self.model, 'access_control_relation'):
                 # superuser checks are handled by the related model
-                relation = getattr(self.model, 'access_control_relation')
-
-                for step in relation.split('__'):
-                    model = self._resolve_model_from_relation(model, step)
+                model = self._get_control_relation_model()
 
             for func in registration.get_unrestricted_access_hooks(model):
                 if func(user):
@@ -140,19 +147,17 @@ class QuerySetMixin:
         if hasattr(self.model, 'access_control_relation'):
             # access control is managed by a related record
             access_relation = getattr(self.model, 'access_control_relation')
+            access_relation_model = self._get_control_relation_model()
             rules = models.Q()
             if user.is_authenticated():
-                if hasattr(self.model, 'owner'):
-                    # direct owner
+                if hasattr(access_relation_model, 'owner'):
+                    # direct owner of the control relation
                     rules = rules | models.Q(
                         **{'%s__owner' % access_relation: user})
                 # in access groups the user is in
                 rules = rules | models.Q(
                     **{'%s__access_groups__in' % access_relation:
                         group_model.objects.filter(**group_dict)})
-                # or owned by user
-                rules = rules | models.Q(
-                    **{'%s__owner' % access_relation: user})
             if getattr(settings, 'DGA_NO_RELATED_RECORD_VISIBILITY', True):
                 # related records do not exist, so main records are visible
                 rules = rules | models.Q(
