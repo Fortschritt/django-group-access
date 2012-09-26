@@ -17,7 +17,8 @@ def _get_registered_model_for_model(model):
     if model in _registered_models:
         return model
     if model._meta.proxy and model._meta.proxy_for_model in _registered_models:
-        return model._meta.concrete_model
+        return getattr(model._meta, 'concrete_model',
+            getattr(model._meta, 'proxy_for_model'))
 
 
 def get_unrestricted_access_hooks(model):
