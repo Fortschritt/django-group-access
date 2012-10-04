@@ -11,7 +11,7 @@ def get_access_control_user():
     """
     Return the user used for automatic filtering.
     """
-    _storage.access_control_user = user
+    return getattr(_storage, 'access_control_user', None)
 
 
 def set_access_control_user(user):
