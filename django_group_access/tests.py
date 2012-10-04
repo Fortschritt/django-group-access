@@ -1385,6 +1385,14 @@ class AutomaticFilteringTest(SyncingTestCase):
         # our local test thread has no user
         self.assertEqual(middleware.get_access_control_user(), None)
 
+    def test_middleware_set_access_control_user(self):
+        """
+        set_access_control_user should take a User object and set that user as
+        the user for subsequent access control requests.
+        """
+        middleware.set_access_control_user(self.user)
+        self.assertEqual(middleware.get_access_control_user(), self.user)
+
 
 class UniqueContraintsInModelForms(SyncingTestCase):
     """

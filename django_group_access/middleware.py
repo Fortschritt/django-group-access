@@ -8,7 +8,17 @@ _storage = local()
 
 
 def get_access_control_user():
-    return getattr(_storage, 'access_control_user', None)
+    """
+    Return the user used for automatic filtering.
+    """
+    _storage.access_control_user = user
+
+
+def set_access_control_user(user):
+    """
+    Set the user for subsequent automatic filtering.
+    """
+    _storage.access_control_user = user
 
 
 class DjangoGroupAccessMiddleware(object):
