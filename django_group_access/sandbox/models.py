@@ -104,6 +104,13 @@ class UnownedChild(models.Model):
         return self.name
 
 
+class PreFilteredModel(models.Model):
+    name = models.CharField(max_length=64)
+
+    def __unicode__(self):
+        return self.name
+
+
 def username_is_mike(user):
     return user.username == 'mike'
 
@@ -126,6 +133,12 @@ register(Machine)
 
 # to test unique constraints when using ModelForms and ownerless records
 register(UniqueModel, owner=False)
+
+# to test that a model can use an initial queryset before
+# security rules are applied
+register(
+    PreFilteredModel, queryset=PreFilteredModel.objects.filter(
+        name__icontains='visible'))
 
 # proxies
 register_proxy(AccessRestrictedProxy)

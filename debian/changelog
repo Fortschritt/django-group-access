@@ -1,3 +1,9 @@
+django-group-access (1.1.13) precise; urgency=low
+
+  * Added initial queryset to limit what records a model has access to.
+
+ -- Mike Heald <mike.heald@canonical.com>  Wed, 17 Jun 2013 15:26:00 +0100
+
 django-group-access (1.1.12) precise; urgency=low
 
   * Added helper function to get registered user from middleware (bigkevmcd)
