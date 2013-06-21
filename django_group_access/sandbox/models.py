@@ -104,8 +104,16 @@ class UnownedChild(models.Model):
         return self.name
 
 
+class PreFilteredParent(models.Model):
+    name = models.CharField(max_length=64)
+
+    def __unicode__(self):
+        return self.name
+
+
 class PreFilteredModel(models.Model):
     name = models.CharField(max_length=64)
+    parent = models.ForeignKey(PreFilteredParent, null=True, blank=True)
 
     def __unicode__(self):
         return self.name
