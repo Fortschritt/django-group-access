@@ -2,6 +2,7 @@
 __all__ = ['register', 'register_proxy']
 
 import traceback
+import types
 
 from django.db.models import query, manager
 from django.db.models.fields import related
@@ -151,7 +152,21 @@ def wrap_getitem(func):
 query.QuerySet.__getitem__ = wrap_getitem(query.QuerySet.__getitem__)
 
 
-def wrap_descriptor_get(func):
+def wrap_related_manager_get_query_set(func):
+    """
+    Extra decorator for related manager's get_query_set which
+    enforces intial querysets.
+    """
+    def get_query_set_wrapper(self, *args, **kwargs):
+        queryset = func(*args, **kwargs)
+        if hasattr(self.model, '_dga_initial_queryset'):
+            if registration.initial_querysets_active:
+                queryset = queryset & self.model._dga_initial_queryset
+        return queryset
+    return get_query_set_wrapper
+
+
+def wrap_descriptor_get(func, do_wrap_get_query_set=False):
     """
     Getting a model or a manager from a related field descriptor
     will have the access control metadata propagated to it
@@ -163,6 +178,12 @@ def wrap_descriptor_get(func):
             return obj
         if hasattr(instance, '_access_control_meta'):
             obj._access_control_meta = instance._access_control_meta
+
+        if do_wrap_get_query_set and hasattr(obj, 'get_query_set'):
+            obj.get_query_set = types.MethodType(
+                wrap_related_manager_get_query_set(
+                    obj.get_query_set), obj)
+
         return obj
     return get_wrapper
 
@@ -171,4 +192,4 @@ related.ReverseSingleRelatedObjectDescriptor.__get__ = wrap_descriptor_get(
 related.ManyRelatedObjectsDescriptor.__get__ = wrap_descriptor_get(
     related.ManyRelatedObjectsDescriptor.__get__)
 related.ForeignRelatedObjectsDescriptor.__get__ = wrap_descriptor_get(
-    related.ForeignRelatedObjectsDescriptor.__get__)
+    related.ForeignRelatedObjectsDescriptor.__get__, True)

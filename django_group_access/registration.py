@@ -1,5 +1,5 @@
 # Copyright 2012 Canonical Ltd.
-import new
+import types
 
 from django.db.models import manager
 from django.contrib.auth.models import User
@@ -101,10 +101,14 @@ def register(
         un_manager.contribute_to_class(model, unrestricted_manager)
 
     if queryset is not None:
+        # used with related managers
+        setattr(model, '_dga_initial_queryset', queryset)
         # decorate the manager's get_query_set method so it's filtered
         # with the initial queryset
-        model.objects.get_query_set = new.instancemethod(wrap_with_initial_queryset(
-            model.objects.get_query_set, queryset), model.objects, model.objects.__class__)
+        model.objects.get_query_set = types.MethodType(
+            wrap_with_initial_queryset(
+                model.objects.get_query_set, queryset),
+            model.objects)
 
     if control_relation:
         model.access_control_relation = control_relation
