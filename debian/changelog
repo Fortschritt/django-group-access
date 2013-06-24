@@ -1,3 +1,9 @@
+django-group-access (1.1.14) precise; urgency=low
+
+  * Added initial queryset to related managers
+
+ -- Mike Heald <mike.heald@canonical.com>  Mon, 24 Jun 2013 12:10:00 +0100
+
 django-group-access (1.1.13) precise; urgency=low
 
   * Added initial queryset to limit what records a model has access to.
