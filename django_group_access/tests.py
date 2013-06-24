@@ -22,6 +22,8 @@ from django_group_access.sandbox.models import (
     AccessRestrictedParent,
     Build,
     Machine,
+    PreFilteredModel,
+    PreFilteredParent,
     Project,
     Release,
     Unrestricted,
@@ -1450,6 +1452,30 @@ class SubqueryTest(SyncingTestCase):
         # of projects in the subqueryset
         groups = self.group_model.objects.filter(project__in=subqueryset)
         self.assertEqual(set(groups), set([]))
+
+
+class InitialQuerysetTest(SyncingTestCase):
+    def test_queryset_is_used_for_filtering(self):
+        """
+        The queryset supplied when registering a model is used
+        to filter the records available to that model.
+        """
+        PreFilteredModel.objects.create(name='hidden')
+        expected = PreFilteredModel.objects.create(name='visible')
+        self.assertEqual(set([expected]), set(PreFilteredModel.objects.all()))
+
+    def test_queryset_is_used_for_related_managers(self):
+        """
+        The querset supplied when registering a model is used to
+        filter the records when the model is accessed through a
+        related set.
+        """
+        parent = PreFilteredParent.objects.create(name='parent')
+        PreFilteredModel.objects.create(name='hidden', parent=parent)
+        expected = PreFilteredModel.objects.create(
+            name='visible', parent=parent)
+        self.assertEqual(
+            set([expected]), set(parent.prefilteredmodel_set.all()))
 
 
 counter = itertools.count()
