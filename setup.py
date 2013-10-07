@@ -27,5 +27,5 @@ setup(
     packages=['django_group_access', 'django_group_access.migrations'],
     # dependencies
     install_requires=['django >=1.3'],
-    setup_requires=['virtualenv']
+    tests_require=['virtualenv']
 )
