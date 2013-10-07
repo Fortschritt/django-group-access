@@ -40,20 +40,26 @@ clean-docs:
 
 # Tests
 
-test-14: env requirements-14 test
+test-14: env requirements-14 test-env
 	@echo ">>> Tests for Django 1.4 complete."
 
-test-13: env requirements-13 test
+test-13: env requirements-13 test-env
 	@echo ">>> Tests for Django 1.3 complete."
 
 test-all: test-13 test-14
 	@echo ">>> Tests complete."
 
-test:
+test-env:
 	@echo ">>> Testing with django_group_access.models.AccessGroup..."
 	$(ACTIVATE) && cd test_projects/dga_django_`python -c "import django; print '_'.join(django.get_version().split('.')[:2]);"` && $(DJANGO_MANAGE) test django_group_access
 	@echo ">>> Testing with django.contrib.auth.models.Group..."
 	$(ACTIVATE) && cd test_projects/dga_django_`python -c "import django; print '_'.join(django.get_version().split('.')[:2]);"` && $(DJANGO_MANAGE) test django_group_access --settings=settings_auth_groups
+
+test:
+	@echo ">>> Testing with django_group_access.models.AccessGroup..."
+	cd test_projects/dga_django_`python -c "import django; print '_'.join(django.get_version().split('.')[:2]);"` && $(DJANGO_MANAGE) test django_group_access
+	@echo ">>> Testing with django.contrib.auth.models.Group..."
+	cd test_projects/dga_django_`python -c "import django; print '_'.join(django.get_version().split('.')[:2]);"` && $(DJANGO_MANAGE) test django_group_access --settings=settings_auth_groups
 
 pep8:
 	$(CHANGED) $(PEP8)
