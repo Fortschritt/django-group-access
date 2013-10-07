@@ -155,9 +155,11 @@ class QuerySetMixin:
                     rules = rules | models.Q(
                         **{'%s__owner' % access_relation: user})
                 # in access groups the user is in
+                accessible_through_group = access_relation_model.objects.filter(access_groups__in=group_model.objects.filter(**group_dict))
                 rules = rules | models.Q(
-                    **{'%s__access_groups__in' % access_relation:
-                        group_model.objects.filter(**group_dict)})
+                    **{'%s__id__in' % access_relation:
+                        accessible_through_group.values('id')
+                        })
             if getattr(settings, 'DGA_NO_RELATED_RECORD_VISIBILITY', True):
                 # related records do not exist, so main records are visible
                 rules = rules | models.Q(
@@ -166,7 +168,6 @@ class QuerySetMixin:
             if getattr(settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC', False):
                 rules = rules | models.Q(
                     **{'%s__access_groups__isnull' % access_relation: True})
-
             return rules
         else:
             # access controls are directly on the record
