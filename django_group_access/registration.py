@@ -97,18 +97,25 @@ def register(
 
     if unrestricted_manager:
         un_manager = manager.Manager()
-        un_manager._access_control_meta = {'user': None, 'unrestricted': True}
         un_manager.contribute_to_class(model, unrestricted_manager)
+        un_manager._access_control_meta = {'user': None, 'unrestricted': True}
 
     if queryset is not None:
         # used with related managers
         setattr(model, '_dga_initial_queryset', queryset)
         # decorate the manager's get_query_set method so it's filtered
         # with the initial queryset
-        model.objects.get_query_set = types.MethodType(
-            wrap_with_initial_queryset(
-                model.objects.get_query_set, queryset),
-            model.objects)
+        if hasattr(model.objects, 'get_queryset'):
+            # django 1.6
+            model.objects.get_queryset = types.MethodType(
+                wrap_with_initial_queryset(
+                    model.objects.get_queryset, queryset),
+                model.objects)
+        else:
+            model.objects.get_query_set = types.MethodType(
+                wrap_with_initial_queryset(
+                    model.objects.get_query_set, queryset),
+                model.objects)
 
     if control_relation:
         model.access_control_relation = control_relation
