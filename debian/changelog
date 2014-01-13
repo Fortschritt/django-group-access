@@ -1,6 +1,7 @@
 django-group-access (1.1.17) precise; urgency=low
 
   * Update for Django 1.6
+  * Fix for #1267811 - Incorrectly assumes models will have an id field (bigkevmcd)
 
  -- Mike Heald <mike.heald@canonical.com>  Mon, 13 Jan 2014 15:52:00 +0100
 
