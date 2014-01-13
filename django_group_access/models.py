@@ -157,8 +157,8 @@ class QuerySetMixin:
                 # in access groups the user is in
                 accessible_through_group = access_relation_model.objects.filter(access_groups__in=group_model.objects.filter(**group_dict))
                 rules = rules | models.Q(
-                    **{'%s__id__in' % access_relation:
-                        accessible_through_group.values('id')
+                    **{'%s__pk__in' % access_relation:
+                        accessible_through_group.values('pk')
                         })
             if getattr(settings, 'DGA_NO_RELATED_RECORD_VISIBILITY', True):
                 # related records do not exist, so main records are visible

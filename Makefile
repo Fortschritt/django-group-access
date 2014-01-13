@@ -15,6 +15,14 @@ bin/activate:
 	@echo ">>> Creating virtualenv..."
 	virtualenv $(VIRTUALENV)
 
+requirements-16:
+	@echo ">>> Installing requirements for Django 1.5..."
+	$(ACTIVATE) && $(PIP_INSTALL) -r requirements.django1.6.txt
+
+requirements-15:
+	@echo ">>> Installing requirements for Django 1.5..."
+	$(ACTIVATE) && $(PIP_INSTALL) -r requirements.django1.5.txt
+
 requirements-14:
 	@echo ">>> Installing requirements for Django 1.4..."
 	$(ACTIVATE) && $(PIP_INSTALL) -r requirements.django1.4.txt
@@ -39,6 +47,12 @@ clean-docs:
 	cd docs && make clean
 
 # Tests
+
+test-16: env requirements-16 test-env
+	@echo ">>> Tests for Django 1.6 complete."
+
+test-15: env requirements-15 test-env
+	@echo ">>> Tests for Django 1.5 complete."
 
 test-14: env requirements-14 test-env
 	@echo ">>> Tests for Django 1.4 complete."

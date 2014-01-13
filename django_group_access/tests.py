@@ -30,7 +30,9 @@ from django_group_access.sandbox.models import (
     UniqueModel,
     UniqueForm,
     UnownedParent,
-    UnownedChild
+    UnownedChild,
+    ParentWithNoId,
+    ChildWithNoId,
 )
 
 
@@ -1476,6 +1478,25 @@ class InitialQuerysetTest(SyncingTestCase):
             name='visible', parent=parent)
         self.assertEqual(
             set([expected]), set(parent.prefilteredmodel_set.all()))
+
+
+class ModelWithNoIdTest(SyncingTestCase):
+
+    def setUp(self):
+        self.group = self.group_model.objects.create(name='group')
+        self.user = _create_user()
+        add_user(self.group, self.user)
+
+    def test_query_for_model_with_no_id(self):
+        """
+        We can query for models that use a different field for their primary
+        key.
+        """
+        parent = ParentWithNoId.objects.create(name='testing')
+        parent.access_groups.add(self.group)
+        child = ChildWithNoId.objects.create(name='test child', parent=parent)
+        self.assertEqual([child],
+            list(ChildWithNoId.objects.accessible_by_user(self.user)))
 
 
 counter = itertools.count()

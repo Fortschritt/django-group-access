@@ -119,6 +119,21 @@ class PreFilteredModel(models.Model):
         return self.name
 
 
+class ParentWithNoId(models.Model):
+    name = models.CharField(max_length=64, primary_key=True)
+
+    def __unicode__(self):
+        return self.name
+
+
+class ChildWithNoId(models.Model):
+    name = models.CharField(max_length=64, primary_key=True)
+    parent = models.ForeignKey(ParentWithNoId)
+
+    def __unicode__(self):
+        return self.name
+
+
 def username_is_mike(user):
     return user.username == 'mike'
 
@@ -156,3 +171,5 @@ register_proxy(AccessRestrictedParentProxy)
 # an owner column at all
 register(UnownedParent, owner=False)
 register(UnownedChild, control_relation='parent', owner=False)
+register(ChildWithNoId, control_relation='parent')
+register(ParentWithNoId)
