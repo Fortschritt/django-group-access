@@ -211,6 +211,9 @@ class QuerySetMixin:
             # are applied
             self._access_control_filtering = True
             rules = self._get_accessible_by_user_filter_rules(user)
+            if len(rules.children) == 0:
+                # no rules, so don't add filter this queryset any further
+                return self
             # Although this extra .filter() call seems redundant it turns
             # out to be a huge performance optimization.  Without it the
             # ORM will join on the related tables and .distinct() them,
