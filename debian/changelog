@@ -1,3 +1,9 @@
+django-group-access (1.1.19) precise; urgency=low
+
+  * Fix the building in Precise, the binary package was empty.
+
+ -- Caio Begotti <caio.begotti@canonical.com>  Tue, 26 Aug 2014 17:59:33 +0000
+
 django-group-access (1.1.18) precise; urgency=low
 
   * Effeciency fix - do not filter queryset if the user passes an unrestricted test
