@@ -10,26 +10,10 @@ from django.db.models.fields import related
 from django.db.models.sql import where
 
 from django_group_access import registration
-#from django_group_access.models import AccessManagerMixin, QuerySetMixin
 
 register = registration.register
 register_proxy = registration.register_proxy
 
-"""
-Django creates managers in a whole bunch of places, sometimes
-defining the class dynamically inside a closure, which makes
-decorating every manager creation a tricky job. So we add a mixin
-to the base Manager class so that we're guaranteed to have the
-access control code available no matter which Manager we're using.
-"""
-"""
-# add access control methods to the base Manager class
-if AccessManagerMixin not in manager.Manager.__bases__:
-    manager.Manager.__bases__ += (AccessManagerMixin, )
-# add access control methods to the base QuerySet class
-if QuerySetMixin not in query.QuerySet.__bases__:
-    query.QuerySet.__bases__ += (QuerySetMixin, )
-"""
 
 def wrap_db_method(func, used_in_unique_check=False):
     """
