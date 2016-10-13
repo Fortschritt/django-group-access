@@ -1,4 +1,5 @@
 # Copyright 2012 Canonical Ltd.
+default_app_config = "django_group_access.apps.DjangoGroupAccessConfig"
 __all__ = ['register', 'register_proxy']
 
 import traceback
@@ -9,7 +10,7 @@ from django.db.models.fields import related
 from django.db.models.sql import where
 
 from django_group_access import registration
-from django_group_access.models import AccessManagerMixin, QuerySetMixin
+#from django_group_access.models import AccessManagerMixin, QuerySetMixin
 
 register = registration.register
 register_proxy = registration.register_proxy
@@ -21,13 +22,14 @@ decorating every manager creation a tricky job. So we add a mixin
 to the base Manager class so that we're guaranteed to have the
 access control code available no matter which Manager we're using.
 """
+"""
 # add access control methods to the base Manager class
 if AccessManagerMixin not in manager.Manager.__bases__:
     manager.Manager.__bases__ += (AccessManagerMixin, )
 # add access control methods to the base QuerySet class
 if QuerySetMixin not in query.QuerySet.__bases__:
     query.QuerySet.__bases__ += (QuerySetMixin, )
-
+"""
 
 def wrap_db_method(func, used_in_unique_check=False):
     """
@@ -224,9 +226,9 @@ def wrap_descriptor_get(func, do_wrap_get_query_set=False):
         return obj
     return get_wrapper
 
-related.ReverseSingleRelatedObjectDescriptor.__get__ = wrap_descriptor_get(
-    related.ReverseSingleRelatedObjectDescriptor.__get__)
-related.ManyRelatedObjectsDescriptor.__get__ = wrap_descriptor_get(
-    related.ManyRelatedObjectsDescriptor.__get__)
-related.ForeignRelatedObjectsDescriptor.__get__ = wrap_descriptor_get(
-    related.ForeignRelatedObjectsDescriptor.__get__, True)
+related.ForwardManyToOneDescriptor.__get__ = wrap_descriptor_get(
+    related.ForwardManyToOneDescriptor.__get__)
+related.ManyToManyDescriptor.__get__ = wrap_descriptor_get(
+    related.ManyToManyDescriptor.__get__)
+related.ReverseManyToOneDescriptor.__get__ = wrap_descriptor_get(
+    related.ReverseManyToOneDescriptor.__get__, True)

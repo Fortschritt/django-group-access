@@ -2,9 +2,11 @@
 import types
 
 from django.db.models import manager
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.db.models.signals import post_save
 from django.db.models.fields import FieldDoesNotExist
+
+User = settings.AUTH_USER_MODEL
 
 _registered_models = set([])
 _auto_filter_models = set([])

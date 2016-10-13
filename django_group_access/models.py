@@ -2,10 +2,11 @@
 from django.db import models
 from django.db.models import ForeignKey, ManyToManyField
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.db.models.fields import FieldDoesNotExist
 from django_group_access import middleware, registration
+
+User = settings.AUTH_USER_MODEL
 
 
 if 'south' in settings.INSTALLED_APPS:
