@@ -4,6 +4,8 @@ try:
 except ImportError:
     from django.utils._threading_local import local
 
+from django.utils.deprecation import MiddlewareMixin
+
 _storage = local()
 
 
@@ -21,7 +23,7 @@ def set_access_control_user(user):
     _storage.access_control_user = user
 
 
-class DjangoGroupAccessMiddleware(object):
+class DjangoGroupAccessMiddleware(MiddlewareMixin):
     """
     Stores and clears the currently logged in user in
     thread local storage.
