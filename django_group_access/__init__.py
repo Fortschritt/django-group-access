@@ -103,15 +103,8 @@ def wrap_get_query_set(func):
     return get_query_set_wrapper
 
 
-if hasattr(manager.Manager, 'get_queryset'):
-    # django 1.6
-    manager.Manager.get_queryset = wrap_get_query_set(
-        manager.Manager.get_queryset)
-else:
-    # previous versions
-    manager.Manager.get_query_set = wrap_get_query_set(
-        manager.Manager.get_query_set)
-
+manager.Manager.get_queryset = wrap_get_query_set(
+    manager.Manager.get_queryset)
 
 def wrap_query_set_iterator(func):
     """

@@ -63,10 +63,10 @@ class AccessManagerMixin:
     Provides access control methods for the Manager class.
     """
     def get_for_owner(self, user):
-        return self.get_query_set().get_for_owner(user)
+        return self.get_queryset().get_for_owner(user)
 
     def accessible_by_user(self, user):
-        return self.get_query_set().accessible_by_user(user)
+        return self.get_queryset().accessible_by_user(user)
 
 
 class QuerySetMixin:
