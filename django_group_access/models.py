@@ -219,10 +219,16 @@ class QuerySetMixin:
             # out to be a huge performance optimization.  Without it the
             # ORM will join on the related tables and .distinct() them,
             # which can kill performance on larger queries.
-            filtered_queryset = self.filter(
-                pk__in=self.filter(rules).distinct())
-            self._access_control_filtering = False
-            return filtered_queryset
+            #
+            # NOTE: this is buggy, commented out for now.
+            # Triggered by a query like this:
+            # instances.annotate(year=TruncYear('date'))\
+            #    .values('year')
+            # error message: OperationalError: sub-select returns 2 columns - expected 1
+            #filtered_queryset = self.filter(        
+            #    pk__in=self.filter(rules).distinct())
+            #self._access_control_filtering = False
+            #return filtered_queryset
 
         return self
 
