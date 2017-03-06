@@ -225,10 +225,12 @@ class QuerySetMixin:
             # instances.annotate(year=TruncYear('date'))\
             #    .values('year')
             # error message: OperationalError: sub-select returns 2 columns - expected 1
-            #filtered_queryset = self.filter(        
+            # original triggering the bug:
+            #filtered_queryset = self.filter(
             #    pk__in=self.filter(rules).distinct())
-            #self._access_control_filtering = False
-            #return filtered_queryset
+            filtered_queryset = self.filter(rules)
+            self._access_control_filtering = False
+            return filtered_queryset
 
         return self
 
