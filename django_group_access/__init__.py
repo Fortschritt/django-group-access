@@ -68,7 +68,6 @@ query.QuerySet.iterator = wrap_db_method(query.QuerySet.iterator)
 query.QuerySet.count = wrap_db_method(query.QuerySet.count)
 query.QuerySet.in_bulk = wrap_db_method(query.QuerySet.in_bulk)
 query.QuerySet.__getitem__ = wrap_db_method(query.QuerySet.__getitem__)
-query.QuerySet._as_sql = wrap_db_method(query.QuerySet._as_sql)
 
 # django 1.6 subquery class
 if hasattr(where, 'SubqueryConstraint'):
@@ -195,7 +194,7 @@ def wrap_descriptor_get(func, do_wrap_get_query_set=False):
                         obj.get_query_set), obj)
 
         if do_wrap_get_query_set and hasattr(obj, 'get_queryset'):
-            if obj.get_queryset.im_func.__name__ != 'get_query_set_wrapper':
+            if obj.get_queryset.__func__.__name__ != 'get_query_set_wrapper':
                 # only wrap it once (django 1.6)
                 obj.get_queryset = types.MethodType(
                     wrap_related_manager_get_query_set(
