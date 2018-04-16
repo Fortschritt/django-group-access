@@ -61,13 +61,19 @@ def wrap_db_method(func, used_in_unique_check=False):
             return func(queryset, *args, **kwargs)
     return db_wrapper
 
+query.QuerySet.all = wrap_db_method(query.QuerySet.all)
 query.QuerySet.get = wrap_db_method(query.QuerySet.get)
+query.QuerySet.earliest = wrap_db_method(query.QuerySet.earliest)
 query.QuerySet.latest = wrap_db_method(query.QuerySet.latest)
+query.QuerySet.first = wrap_db_method(query.QuerySet.first)
+query.QuerySet.last = wrap_db_method(query.QuerySet.last)
 query.QuerySet.aggregate = wrap_db_method(query.QuerySet.aggregate)
 query.QuerySet.iterator = wrap_db_method(query.QuerySet.iterator)
 query.QuerySet.count = wrap_db_method(query.QuerySet.count)
 query.QuerySet.in_bulk = wrap_db_method(query.QuerySet.in_bulk)
 query.QuerySet.__getitem__ = wrap_db_method(query.QuerySet.__getitem__)
+query.QuerySet.filter = wrap_db_method(query.QuerySet.filter)
+query.QuerySet.exclude = wrap_db_method(query.QuerySet.exclude)
 
 # django 1.6 subquery class
 if hasattr(where, 'SubqueryConstraint'):
