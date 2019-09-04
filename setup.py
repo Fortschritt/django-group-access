@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 setup(
@@ -20,11 +20,11 @@ setup(
         'Intended Audience :: Developers',
         "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
         "Operating System :: OS Independent",
-        "Programming Language :: Python :: 2.6",
+        "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 2.7",
     ],
     zip_safe=True,
-    packages=['django_group_access', 'django_group_access.migrations'],
+    packages=find_packages(),
     # dependencies
     install_requires=['django >=1.3'],
     tests_require=['virtualenv']
