@@ -21,11 +21,10 @@ setup(
         "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 2.7",
     ],
     zip_safe=True,
     packages=find_packages(),
     # dependencies
-    install_requires=['django >=1.3'],
+    install_requires=['django >=1.10'],
     tests_require=['virtualenv']
 )

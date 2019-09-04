@@ -8,7 +8,7 @@ class SyncingDb(object):
 
     def syncdb(self):
         self._original_installed_apps = list(settings.INSTALLED_APPS)
-        print self.apps
+        print(self.apps)
         for app in self.apps:
             settings.INSTALLED_APPS.append(app)
         loading.cache.loaded = False

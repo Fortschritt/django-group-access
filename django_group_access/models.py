@@ -102,7 +102,10 @@ class QuerySetMixin:
         if hasattr(descriptor, 'related'):
             resolved = getattr(descriptor, 'related').model
         elif hasattr(descriptor, 'field'):
-            resolved = getattr(descriptor, 'field').rel.to
+            if hasattr(descriptor, 'rel'): # Django <2
+                resolved = getattr(descriptor, 'field').rel.to
+            else: # Django 2+
+                resolved = getattr(descriptor, 'field').remote_field.model
         return resolved
 
     def _get_control_relation_model(self):
@@ -130,7 +133,7 @@ class QuerySetMixin:
         if hasattr(group_model, 'members'):
             group_dict['members'] = user
 
-        if user.is_authenticated():
+        if user.is_authenticated:
             model = self.model
             if hasattr(self.model, 'access_control_relation'):
                 # superuser checks are handled by the related model
@@ -150,7 +153,7 @@ class QuerySetMixin:
             access_relation = getattr(self.model, 'access_control_relation')
             access_relation_model = self._get_control_relation_model()
             rules = models.Q()
-            if user.is_authenticated():
+            if user.is_authenticated:
                 if hasattr(access_relation_model, 'owner'):
                     # direct owner of the control relation
                     rules = rules | models.Q(
@@ -172,7 +175,7 @@ class QuerySetMixin:
             return rules
         else:
             # access controls are directly on the record
-            if user.is_authenticated():
+            if user.is_authenticated:
                 user_groups = group_model.objects.filter(**group_dict)
                 # either the record is in the user's access groups, or
                 # directly owned by the user
@@ -206,7 +209,7 @@ class QuerySetMixin:
         if user is not None:
             unshared_are_public = getattr(
                 settings, 'DGA_UNSHARED_RECORDS_ARE_PUBLIC', False)
-            if not user.is_authenticated() and not unshared_are_public:
+            if not user.is_authenticated and not unshared_are_public:
                 return self.model.objects.none()
             # this stops any further filtering while the filtering rules
             # are applied

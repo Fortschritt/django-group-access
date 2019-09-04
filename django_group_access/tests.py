@@ -1503,7 +1503,7 @@ counter = itertools.count()
 
 
 def _create_user():
-    random_string = 'asdfg%d' % counter.next()
+    random_string = 'asdfg%d' % next(counter)
     user = User.objects.create(
         username=random_string, email='%s@example.com' % random_string)
     return user

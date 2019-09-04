@@ -193,7 +193,7 @@ def wrap_descriptor_get(func, do_wrap_get_query_set=False):
             obj._access_control_meta = instance._access_control_meta
 
         if do_wrap_get_query_set and hasattr(obj, 'get_query_set'):
-            if obj.get_query_set.im_func.__name__ != 'get_query_set_wrapper':
+            if obj.get_query_set.__func__.__name__ != 'get_query_set_wrapper':
                 # only wrap it once (previous to django 1.6)
                 obj.get_query_set = types.MethodType(
                     wrap_related_manager_get_query_set(
