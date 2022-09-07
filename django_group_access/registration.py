@@ -4,7 +4,13 @@ import types
 from django.db.models import manager
 from django.conf import settings
 from django.db.models.signals import post_save
-from django.db.models.fields import FieldDoesNotExist
+try:
+    # Django 2.2-
+    from django.db.models.fields import FieldDoesNotExist
+except ImportError:
+    # Django 3.2+
+    from django.core.exceptions import FieldDoesNotExist
+    
 
 User = settings.AUTH_USER_MODEL
 

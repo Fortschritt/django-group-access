@@ -3,7 +3,12 @@ from django.db import models
 from django.db.models import ForeignKey, ManyToManyField
 from django.conf import settings
 from django.db.models.signals import post_save
-from django.db.models.fields import FieldDoesNotExist
+try:
+    # Django 2.2-
+    from django.db.models.fields import FieldDoesNotExist
+except ImportError:
+    # Django 3.2+
+    from django.core.exceptions import FieldDoesNotExist
 from django_group_access import middleware, registration
 
 User = settings.AUTH_USER_MODEL
